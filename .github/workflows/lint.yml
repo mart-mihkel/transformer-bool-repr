@@ -1,4 +1,4 @@
-name: Lint
+name: Linter
 
 on: [push, pull_request]
 
@@ -16,3 +16,6 @@ jobs:
 
       - name: Lint
         run: uvx ruff check
+
+      - name: Format
+        run: uvx ruff format --check
