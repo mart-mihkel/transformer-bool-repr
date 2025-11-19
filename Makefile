@@ -14,5 +14,9 @@ fomat-check: sync
 lint: sync
 	uv run ruff check
 
+.PHONY: test
+test: sync
+	uv run pytest
+
 .PHONY: check
-check: fomat-check lint
+check: fomat-check lint test
