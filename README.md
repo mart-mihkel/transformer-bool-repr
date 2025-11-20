@@ -23,21 +23,11 @@ pip install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Project Setup
-
-- `uv sync --all-groups` - install all runtime and development dependencies.
-
 ### Make Commands
 
 - `make sync` - setup local venv.
 - `make format` - run formatter.
+- `make format-check` - check formatting.
 - `make lint` - run linter.
-
-### Running Tests
-
-- `uv run pytest` - run all tests.
-- `uv run tests/run_tests.py` - run a specific test file.
-
-### Running Scripts
-
-- `uv run <file_name>.py`
+- `make test` - run tests.
+- `make check` - run all checks.
