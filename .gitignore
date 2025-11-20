@@ -11,3 +11,6 @@ wheels/
 
 # Devenv
 .envrc
+
+# macOS
+.DS_Store
