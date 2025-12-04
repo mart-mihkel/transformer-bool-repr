@@ -33,16 +33,16 @@ def main():
         seed=args.seed,
     )
 
-    val_dataset = BooleanFunctionDataset(
-        num_samples=2,
-        seq_length=args.seq_length,
-        input_dim=args.input_dim,
-        function_class=args.function,
-        seed=args.seed + 1,
-    )
+    # val_dataset = BooleanFunctionDataset(
+    #    num_samples=2,
+    #    seq_length=args.seq_length,
+    #    input_dim=args.input_dim,
+    #    function_class=args.function,
+    #    seed=args.seed + 1,
+    # )
 
     # DEBUG: Visualize data
-    # data_visualizer(args, train_dataset)
+    data_visualizer(args, train_dataset)
 
     # TODO: model training.
 
