@@ -193,6 +193,8 @@ def data_visualizer(
     seq_length: int,
     dataset: BooleanFunctionDataset,
 ):
+    # TODO: this should probably be in a notebook
+
     logger.info(f"Dataset type: {type(dataset)}")
     logger.info(f"Dataset length: {len(dataset)}")
     logger.info(f"Function class: {function_class}")
