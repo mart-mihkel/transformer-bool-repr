@@ -3,20 +3,16 @@ sync:
 	uv sync
 
 .PHONY: format
-format: sync
+format:
 	uv run ruff format
 
-.PHONY: fomat-check
-fomat-check: sync
-	uv run ruff format --check
-
 .PHONY: lint
-lint: sync
+lint:
 	uv run ruff check
 
 .PHONY: test
-test: sync
+test:
 	uv run pytest
 
 .PHONY: check
-check: fomat-check lint test
+check: format lint test
