@@ -1,16 +1,11 @@
-# Python-generated files
 __pycache__/
+.ipynb_checkpoints/
 *.py[oc]
 build/
 dist/
+out/
 wheels/
 *.egg-info
-
-# Virtual environments
 .venv
-
-# Devenv
 .envrc
-
-# macOS
 .DS_Store

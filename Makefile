@@ -1,6 +1,7 @@
 .PHONY: sync
 sync:
 	uv sync
+	uv pip install -e .
 
 .PHONY: format
 format:
@@ -8,7 +9,7 @@ format:
 
 .PHONY: lint
 lint:
-	uv run ruff check
+	uv run ruff check --fix
 
 .PHONY: test
 test:
