@@ -2,7 +2,7 @@ from boolrepr.data import BooleanFunctionDataset
 
 
 def test_data_shape():
-    n_samp, seq, d_in = 1, 2, 2
+    n_samp, seq, d_in = 1, 4, 2
     dataset = BooleanFunctionDataset(
         function_class="conjunction",
         num_samples=n_samp,
@@ -12,4 +12,10 @@ def test_data_shape():
         seed=1,
     )
 
-    assert dataset.data.shape, (n_samp, 2 * seq, d_in + 1)
+    data = dataset.data
+    x = data[0]["x"]
+    y = data[0]["y"]
+
+    assert len(data) == n_samp
+    assert x.shape == (seq, d_in)
+    assert y.shape == (seq,)
