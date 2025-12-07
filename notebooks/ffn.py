@@ -6,22 +6,13 @@ app = marimo.App()
 
 @app.cell
 def _():
-    import marimo as mo
     import torch
     from torch.utils.data import DataLoader
 
     from boolrepr.models import FeedForwardNetwork
     from boolrepr.data import BooleanFunctionDataset
 
-    return BooleanFunctionDataset, DataLoader, FeedForwardNetwork, mo, torch
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # Bogus
-    """)
-    return
+    return BooleanFunctionDataset, DataLoader, FeedForwardNetwork, torch
 
 
 @app.cell
@@ -43,10 +34,9 @@ def _(
     function_class,
     input_dim,
     seq_length,
-    torch,
 ):
     train_dataset = BooleanFunctionDataset(
-        num_samples=10_000,
+        num_samples=100,
         seq_length=seq_length,
         input_dim=input_dim,
         function_class=function_class,
@@ -56,27 +46,36 @@ def _(
         train_dataset.data,
         batch_size=batch_size,
         shuffle=True,
-        collate_fn=lambda x: torch.stack(x),
+        collate_fn=BooleanFunctionDataset.collate_fn_feed_forward,
     )
-    return (train_loader,)
+
+    batch = next(iter(train_loader))
+    batch["x"].shape, batch["y"].shape
+    return (batch,)
 
 
 @app.cell
 def _(FeedForwardNetwork, device, input_dim, seq_length):
     model = FeedForwardNetwork(
-        in_size=input_dim * seq_length * 2,
+        input_size=input_dim * seq_length,
         hidden_size=256,
-        out_size=1,
+        out_size=seq_length,
     )
 
     model = model.to(device)
-    return
+    model
+    return (model,)
 
 
 @app.cell
-def _(train_loader):
-    batch = next(iter(train_loader))
-    batch.shape
+def _(batch, model, torch):
+    x = batch["x"]
+    y = batch["y"]
+
+    y_hat = model(x)
+
+    loss = torch.nn.functional.cross_entropy(y, y_hat)
+    loss.backward()
     return
 
 
