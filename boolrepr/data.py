@@ -1,8 +1,13 @@
-import torch
 import random
+import logging
+from typing import Callable, List
+
 import numpy as np
-from typing import List, Callable
+import torch
 from torch.utils.data import Dataset
+
+
+logger = logging.getLogger("boolrepr")
 
 
 class BooleanFunctionDataset(Dataset):
@@ -192,32 +197,32 @@ class BooleanFunctionDataset(Dataset):
 
 
 def data_visualizer(args, dataset):
-    print(f"\nDataset type: {type(dataset)}")
-    print(f"Dataset length: {len(dataset)}")
-    print(f"Function class: {args.function}")
-    print(f"Input dimension: {args.input_dim}")
-    print(f"Sequence length: {args.seq_length}")
+    logger.info(f"\nDataset type: {type(dataset)}")
+    logger.info(f"Dataset length: {len(dataset)}")
+    logger.info(f"Function class: {args.function}")
+    logger.info(f"Input dimension: {args.input_dim}")
+    logger.info(f"Sequence length: {args.seq_length}")
 
     # Show first sequence in detail
-    print(f"\n{'=' * 80}")
-    print(f"FIRST SEQUENCE ANALYSIS (function: {args.function}):")
-    print(f"{'=' * 80}")
+    logger.info(f"\n{'=' * 80}")
+    logger.info(f"FIRST SEQUENCE ANALYSIS (function: {args.function}):")
+    logger.info(f"{'=' * 80}")
 
     seq = dataset[0]
-    print(f"\nFull sequence shape: {seq.shape}")
-    print(
+    logger.info(f"\nFull sequence shape: {seq.shape}")
+    logger.info(
         f"Expected shape: (2*seq_length, input_dim+1) = ({2 * args.seq_length}, {args.input_dim + 1})"
     )
 
     # Show the raw tensor (first few rows)
-    print("\nFirst 6 rows of the raw tensor:")
+    logger.info("\nFirst 6 rows of the raw tensor:")
     for i in range(min(6, len(seq))):
-        print(f"  Row {i:2d}: {seq[i].int().tolist()}")
+        logger.info(f"  Row {i:2d}: {seq[i].int().tolist()}")
 
     # Decode the sequence
-    print(f"\n{'=' * 80}")
-    print("DECODED (x,y) PAIRS (first 5 examples):")
-    print(f"{'=' * 80}")
+    logger.info(f"\n{'=' * 80}")
+    logger.info("DECODED (x,y) PAIRS (first 5 examples):")
+    logger.info(f"{'=' * 80}")
 
     for i in range(min(5, args.seq_length)):
         x_vec = seq[2 * i]
@@ -229,19 +234,19 @@ def data_visualizer(args, dataset):
         y_padding = y_vec[:-1]  # First elements are padding (should be all 0s)
         y_label = y_vec[-1]  # Last element is the actual label
 
-        print(f"\nExample {i}:")
-        print(f"  x_{i}: {x_input.int().tolist()}")
-        print(f"  x padding indicator: {x_padding.item()}")
-        print(f"  y_{i}: {y_label.item():.0f}")
-        print(f"  y padding: {y_padding.int().tolist()}")
+        logger.info(f"\nExample {i}:")
+        logger.info(f"  x_{i}: {x_input.int().tolist()}")
+        logger.info(f"  x padding indicator: {x_padding.item()}")
+        logger.info(f"  y_{i}: {y_label.item():.0f}")
+        logger.info(f"  y padding: {y_padding.int().tolist()}")
 
         binary = "".join(str(int(b)) for b in x_input)
         grouped_binary = " ".join([binary[j : j + 4] for j in range(0, len(binary), 4)])
-        print(f"  Binary: {grouped_binary}")
+        logger.info(f"  Binary: {grouped_binary}")
 
-    print(f"\n{'=' * 80}")
-    print("LABEL STATISTICS FOR FIRST SEQUENCE:")
-    print(f"{'=' * 80}")
+    logger.info(f"\n{'=' * 80}")
+    logger.info("LABEL STATISTICS FOR FIRST SEQUENCE:")
+    logger.info(f"{'=' * 80}")
 
     labels = []
     for i in range(args.seq_length):
@@ -249,22 +254,22 @@ def data_visualizer(args, dataset):
         y_label = y_vec[-1]
         labels.append(int(y_label.item()))
 
-    print(f"Labels: {labels}")
-    print(f"Number of 1s: {sum(labels)}")
-    print(f"Number of 0s: {len(labels) - sum(labels)}")
-    print(f"Proportion of 1s: {sum(labels) / len(labels):.2f}")
+    logger.info(f"Labels: {labels}")
+    logger.info(f"Number of 1s: {sum(labels)}")
+    logger.info(f"Number of 0s: {len(labels) - sum(labels)}")
+    logger.info(f"Proportion of 1s: {sum(labels) / len(labels):.2f}")
 
-    print(f"\n{'=' * 80}")
-    print("CHECKING MULTIPLE SEQUENCES (first label from each):")
-    print(f"{'=' * 80}")
+    logger.info(f"\n{'=' * 80}")
+    logger.info("CHECKING MULTIPLE SEQUENCES (first label from each):")
+    logger.info(f"{'=' * 80}")
 
     for seq_idx in range(min(3, len(dataset))):
         seq = dataset[seq_idx]
         y_vec = seq[1]
         y_label = y_vec[-1]
-        print(f"Sequence {seq_idx}: first label = {int(y_label.item())}")
+        logger.info(f"Sequence {seq_idx}: first label = {int(y_label.item())}")
 
         x0 = seq[0][:-1]
         binary = "".join(str(int(b)) for b in x0)
         grouped_binary = " ".join([binary[j : j + 4] for j in range(0, len(binary), 4)])
-        print(f"            first input = {grouped_binary}")
+        logger.info(f"            first input = {grouped_binary}")
