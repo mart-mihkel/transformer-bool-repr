@@ -178,9 +178,21 @@ class TransformerEncoder(Module):
         self.classify = Linear(embed_dim, num_classes)
 
     def forward(
-        self, x: Annotated[Tensor, "batch sequence"]
+        self,
+        input_ids: Annotated[Tensor, "batch sequence"] | None = None,
+        input_embeds: Annotated[Tensor, "batch sequence embed"] | None = None,
     ) -> Annotated[Tensor, "batch class"]:
-        out = self.embedding(x)
+        assert input_ids is None or input_embeds is None, (
+            "You can only pass either input_ids or input_embeds"
+        )
+
+        if input_ids is not None:
+            out = self.embedding(input_ids)
+        else:
+            out = input_embeds
+
+        assert out is not None, "You must pass one of input_ids or input_embeds"
+
         for block in self.blocks:
             out = block(out)
 
