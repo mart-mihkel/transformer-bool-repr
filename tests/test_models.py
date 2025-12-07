@@ -9,26 +9,23 @@ from boolrepr.models import (
 
 
 def test_parallel_networks():
-    num_models = 2
-    batch_size = 4
-    in_size = 6
-    out_size = 1
+    batch, n_nets, hidden, d_in, d_out = 4, 2, 8, 6, 1
 
     model = ParallelFeedForwardNetworks(
-        num_models=num_models,
-        in_size=in_size,
-        hidden_size=2,
-        out_size=out_size,
+        num_models=n_nets,
+        in_size=d_in,
+        hidden_size=hidden,
+        out_size=d_out,
     )
 
-    x = torch.randn(num_models, batch_size, in_size)
+    x = torch.randn(n_nets, batch, d_in)
     y = model.forward(x)
 
-    assert y.shape == (num_models, batch_size, out_size)
+    assert y.shape == (n_nets, batch, d_out)
 
 
 def test_multi_head_attention():
-    batch, emb, seq, heads = 4, 8, 6, 4
+    batch, emb, seq, heads = 10, 8, 6, 4
 
     attn = MultiHeadAttention(d_embed=emb, n_heads=heads)
     x = torch.randn(batch, seq, emb)
@@ -38,7 +35,7 @@ def test_multi_head_attention():
 
 
 def test_transformer_block():
-    batch, emb, seq, heads = 4, 8, 6, 4
+    batch, emb, seq, heads = 10, 8, 6, 4
 
     enc_block = TransformerBlock(
         embed_dim=emb,
@@ -53,7 +50,7 @@ def test_transformer_block():
 
 
 def test_transformer_encoder():
-    voc, batch, emb, seq, heads, blocks, classes = 10, 4, 8, 6, 4, 12, 14
+    voc, batch, emb, seq, heads, blocks, classes = 10, 2, 8, 6, 4, 12, 14
 
     enc = TransformerEncoder(
         voc_size=voc,
