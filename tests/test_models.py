@@ -27,7 +27,7 @@ def test_parallel_networks():
 def test_multi_head_attention():
     batch, emb, seq, heads = 10, 8, 6, 4
 
-    attn = MultiHeadAttention(d_embed=emb, n_heads=heads)
+    attn = MultiHeadAttention(embed_dim=emb, num_heads=heads)
     x = torch.randn(batch, seq, emb)
     y = attn.forward(x)
 

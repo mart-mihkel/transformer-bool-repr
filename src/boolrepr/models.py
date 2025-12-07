@@ -25,14 +25,14 @@ class FeedForwardNetwork(Module):
 
     def __init__(
         self,
-        in_size: int = 64,
+        input_size: int = 64,
         hidden_size: int = 256,
         out_size: int = 1,
     ):
         super(FeedForwardNetwork, self).__init__()
 
         self.net = Sequential(
-            Linear(in_size, hidden_size),
+            Linear(input_size, hidden_size),
             ReLU(),
             Linear(hidden_size, hidden_size),
             ReLU(),
@@ -64,7 +64,7 @@ class ParallelFeedForwardNetworks(Module):
         self.nets = ModuleList(
             [
                 FeedForwardNetwork(
-                    in_size=in_size,
+                    input_size=in_size,
                     hidden_size=hidden_size,
                     out_size=out_size,
                 )
@@ -83,15 +83,17 @@ class ParallelFeedForwardNetworks(Module):
 
 
 class MultiHeadAttention(Module):
-    def __init__(self, d_embed: int, n_heads: int):
+    def __init__(self, embed_dim: int, num_heads: int):
         super().__init__()
-        assert d_embed % n_heads == 0, "Embedding shape not divisibe by number of heads"
+        assert embed_dim % num_heads == 0, (
+            "Embedding shape not divisibe by number of heads"
+        )
 
-        self.n_heads = n_heads
-        self.scale = (d_embed // n_heads) ** -0.5
+        self.n_heads = num_heads
+        self.scale = (embed_dim // num_heads) ** -0.5
 
-        self.proj_qkv = Linear(d_embed, d_embed * 3)
-        self.proj_out = Linear(d_embed, d_embed)
+        self.proj_qkv = Linear(embed_dim, embed_dim * 3)
+        self.proj_out = Linear(embed_dim, embed_dim)
 
     def forward(
         self,
