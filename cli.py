@@ -3,6 +3,7 @@ from typing import Literal
 
 import typer
 
+from boolrepr.data import data_visualizer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("boolrepr")
@@ -11,7 +12,7 @@ app = typer.Typer()
 
 
 @app.command()
-def train(
+def data(
     function_class: Literal[
         "conjunction", "disjunction", "parity", "majority"
     ] = "conjunction",
@@ -21,7 +22,7 @@ def train(
 ):
     from boolrepr.data import BooleanFunctionDataset
 
-    train_dataset = BooleanFunctionDataset(
+    dataset = BooleanFunctionDataset(
         num_samples=2,
         seq_length=seq_length,
         input_dim=input_dim,
@@ -29,16 +30,7 @@ def train(
         seed=seed,
     )
 
-    val_dataset = BooleanFunctionDataset(
-        num_samples=2,
-        seq_length=seq_length,
-        input_dim=input_dim,
-        function_class=function_class,
-        seed=seed + 1,
-    )
-
-    logger.info("%s", train_dataset)
-    logger.info("%s", val_dataset)
+    data_visualizer(function_class, input_dim, seq_length, dataset)
 
 
 if __name__ == "__main__":
