@@ -1,13 +1,16 @@
 import random
 import logging
-from typing import Callable, List
+from typing import Callable, Literal
 
 import numpy as np
 import torch
+from torch import Tensor
 from torch.utils.data import Dataset
 
 
 logger = logging.getLogger("boolrepr")
+
+type FunctionClass = Literal["conjunction", "disjunction", "parity", "majority"]
 
 
 class BooleanFunctionDataset(Dataset):
@@ -21,10 +24,10 @@ class BooleanFunctionDataset(Dataset):
         num_samples: int = 10000,
         seq_length: int = 70,
         input_dim: int = 28,
-        function_class: str = "conjunction",
+        function_class: FunctionClass = "conjunction",
         noise_prob: float = 0.0,
         teaching_sequence: bool = False,
-        seed: int = 42,
+        seed: int | None = 42,
     ):
         self.num_samples = num_samples
         self.seq_length = seq_length
@@ -32,15 +35,15 @@ class BooleanFunctionDataset(Dataset):
         self.function_class = function_class
         self.noise_prob = noise_prob
         self.teaching_sequence = teaching_sequence
-        self.seed = seed
 
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
 
         self.data = self._generate_data()
 
-    def _generate_function(self) -> Callable:
+    def _generate_function(self) -> Callable[[Tensor], Tensor]:
         """Generate a function from the specified class."""
         if self.function_class == "conjunction":
             return self._generate_conjunction()
@@ -53,7 +56,7 @@ class BooleanFunctionDataset(Dataset):
         else:
             raise ValueError(f"Unknown function class: {self.function_class}")
 
-    def _generate_conjunction(self) -> Callable:
+    def _generate_conjunction(self) -> Callable[[Tensor], Tensor]:
         """
         Generate a random conjunction function.
         Each literal (x_i or ¬x_i) has 30% probability of being included.
@@ -68,7 +71,7 @@ class BooleanFunctionDataset(Dataset):
                 literals.append((i, 0))
             # Otherwise exclude
 
-        def conjunction_func(x: torch.Tensor) -> torch.Tensor:
+        def conjunction_func(x: Tensor) -> Tensor:
             """Evaluate the conjunction on input x."""
             result = torch.ones(x.shape[0], dtype=torch.float32)
             for var_idx, is_positive in literals:
@@ -80,7 +83,7 @@ class BooleanFunctionDataset(Dataset):
 
         return conjunction_func
 
-    def _generate_parity(self, k: int = 2) -> Callable:
+    def _generate_parity(self, k: int = 2) -> Callable[[Tensor], Tensor]:
         """
         Generate a parity function on k random variables.
         For PARITY-(n,k).
@@ -88,7 +91,7 @@ class BooleanFunctionDataset(Dataset):
         # Randomly select k variables
         relevant_vars = random.sample(range(self.input_dim), k)
 
-        def parity_func(x: torch.Tensor) -> torch.Tensor:
+        def parity_func(x: Tensor) -> Tensor:
             """Compute XOR of relevant variables."""
             # Take only relevant variables
             relevant = x[:, relevant_vars]
@@ -98,7 +101,7 @@ class BooleanFunctionDataset(Dataset):
 
         return parity_func
 
-    def _generate_disjunction(self) -> Callable:
+    def _generate_disjunction(self) -> Callable[[Tensor], Tensor]:
         """Generate a random disjunction function."""
         # Similar to conjunction but with OR instead of AND
         literals = []
@@ -109,7 +112,7 @@ class BooleanFunctionDataset(Dataset):
             elif r < 0.30:
                 literals.append((i, 0))
 
-        def disjunction_func(x: torch.Tensor) -> torch.Tensor:
+        def disjunction_func(x: Tensor) -> Tensor:
             result = torch.zeros(x.shape[0], dtype=torch.float32)
             for var_idx, is_positive in literals:
                 if is_positive:
@@ -121,13 +124,13 @@ class BooleanFunctionDataset(Dataset):
 
         return disjunction_func
 
-    def _generate_majority(self) -> Callable:
+    def _generate_majority(self) -> Callable[[Tensor], Tensor]:
         """Generate a majority function on a random subset of variables."""
         # Random subset of variables (size ~n/3)
         subset_size = max(1, self.input_dim // 3)
         relevant_vars = random.sample(range(self.input_dim), subset_size)
 
-        def majority_func(x: torch.Tensor) -> torch.Tensor:
+        def majority_func(x: Tensor) -> Tensor:
             relevant = x[:, relevant_vars]
             # Majority: if more than half are 1, output 1
             majority_threshold = relevant.shape[1] / 2
@@ -135,18 +138,18 @@ class BooleanFunctionDataset(Dataset):
 
         return majority_func
 
-    def _generate_inputs(self, num_inputs: int) -> torch.Tensor:
+    def _generate_inputs(self, num_inputs: int) -> Tensor:
         """Generate random Boolean inputs."""
         # The paper uses a modified distribution for some tasks.
         # We just use uniform for now.
         return torch.bernoulli(0.5 * torch.ones(num_inputs, self.input_dim))
 
-    def _create_teaching_sequence(self, func: Callable) -> List[torch.Tensor]:
+    def _create_teaching_sequence(self) -> Tensor:
         """Create a teaching sequence for the given function."""
         # TODO: Placeholder for now
-        return []
+        return torch.empty(0)
 
-    def _generate_sequence(self) -> torch.Tensor:
+    def _generate_sequence(self) -> Tensor:
         """Generate one complete sequence with unified dimensions."""
         func = self._generate_function()
 
@@ -181,12 +184,12 @@ class BooleanFunctionDataset(Dataset):
 
         return sequence
 
-    def _generate_data(self) -> List[torch.Tensor]:
+    def _generate_data(self) -> Tensor:
         """Generate all sequences."""
-        data = []
-        for _ in range(self.num_samples):
-            sequence = self._generate_sequence()
-            data.append(sequence)
+        data = torch.empty(self.num_samples, self.seq_length * 2, self.input_dim + 1)
+        for i in range(self.num_samples):
+            data[i] = self._generate_sequence()
+
         return data
 
     def __len__(self):
