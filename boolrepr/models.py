@@ -96,11 +96,16 @@ class MultiHeadAttention(Module):
     def forward(
         self,
         x: Annotated[Tensor, "batch sequence embed"],
+        mask: Annotated[Tensor, "sequence sequence"] | None = None,
     ) -> Annotated[Tensor, "batch sequence embed"]:
         q, k, v = self.proj_qkv(x).chunk(3, dim=-1)
         q, k, v = map(self.head_partition, (q, k, v))
 
         attn_scores = q @ k.transpose(-1, -2) * self.scale
+
+        if mask is not None:
+            attn_scores = attn_scores.masked_fill(mask == 0, -1e9)
+
         attn_weights = torch.nn.functional.softmax(attn_scores, dim=-1)
 
         out = attn_weights @ v
@@ -120,7 +125,7 @@ class MultiHeadAttention(Module):
         return einops.rearrange(x, "b h s d -> b s (h d)")
 
 
-class TransformerEncoderBlock(Module):
+class TransformerBlock(Module):
     def __init__(self, embed_dim: int, num_heads: int, hidden_dim: int):
         super().__init__()
 
@@ -135,10 +140,12 @@ class TransformerEncoderBlock(Module):
         self.norm2 = LayerNorm(embed_dim)
 
     def forward(
-        self, x: Annotated[Tensor, "batch sequence embed"]
+        self,
+        x: Annotated[Tensor, "batch sequence embed"],
+        mask: Annotated[Tensor, "sequence sequence"] | None = None,
     ) -> Annotated[Tensor, "batch sequence embed"]:
         res = x
-        out = self.attn(x)
+        out = self.attn(x, mask)
         out = self.norm1(out + res)
 
         res = out
@@ -163,7 +170,7 @@ class TransformerEncoder(Module):
         self.embedding = Embedding(voc_size, embed_dim)
         self.blocks = ModuleList(
             [
-                TransformerEncoderBlock(embed_dim, num_heads, hidden_dim)
+                TransformerBlock(embed_dim, num_heads, hidden_dim)
                 for _ in range(num_blocks)
             ]
         )

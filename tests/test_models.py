@@ -4,7 +4,7 @@ from boolrepr.models import (
     ParallelFeedForwardNetworks,
     MultiHeadAttention,
     TransformerEncoder,
-    TransformerEncoderBlock,
+    TransformerBlock,
 )
 
 
@@ -37,10 +37,10 @@ def test_multi_head_attention():
     assert y.shape == (batch, seq, emb)
 
 
-def test_transformer_encoder_block():
+def test_transformer_block():
     batch, emb, seq, heads = 4, 8, 6, 4
 
-    enc_block = TransformerEncoderBlock(
+    enc_block = TransformerBlock(
         embed_dim=emb,
         num_heads=heads,
         hidden_dim=seq,
