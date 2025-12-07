@@ -8,6 +8,7 @@ dependencies = [
     "einops>=0.8.1",
     "numpy>=2.3.5",
     "torch>=2.9.0",
+    "tqdm>=4.67.1",
     "typer>=0.20.0",
 ]
 
