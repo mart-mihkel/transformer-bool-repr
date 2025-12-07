@@ -1,16 +1,20 @@
-import random
 import logging
-from typing import Literal
+import random
+from typing import Annotated, Literal, TypedDict
 
 import numpy as np
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-
 logger = logging.getLogger("boolrepr")
 
 type FunctionClass = Literal["conjunction", "disjunction", "parity", "majority"]
+
+
+class FunctionSequence(TypedDict):
+    x: Annotated[Tensor, "sequence input"]
+    y: Annotated[Tensor, "sequence"]
 
 
 class BooleanFunctionDataset(Dataset):
@@ -143,7 +147,7 @@ class BooleanFunctionDataset(Dataset):
         # TODO: Placeholder for now
         return torch.empty(0)
 
-    def _generate_sequence(self) -> Tensor:
+    def _generate_sequence(self) -> FunctionSequence:
         """Generate one complete sequence with unified dimensions."""
         inputs = self._generate_inputs()
         labels = self._generate_labels(inputs)
@@ -152,33 +156,11 @@ class BooleanFunctionDataset(Dataset):
             noise_mask = torch.bernoulli(self.noise_prob * torch.ones_like(labels))
             labels = (labels + noise_mask) % 2
 
-        # 5. Format and Interleave
-        # x_token: [x_1, ... x_n, 0]
-        # y_token: [0, ... 0, y]
+        return {"x": inputs, "y": labels}
 
-        # Prepare x tokens: Pad with one zero at the end
-        zeros_for_x = torch.zeros(self.seq_length, 1)
-        x_tokens = torch.cat([inputs, zeros_for_x], dim=1)
-
-        # Prepare y tokens: Pad with zeros at the start, label at the end
-        zeros_for_y = torch.zeros(self.seq_length, self.input_dim)
-        y_tokens = torch.cat([zeros_for_y, labels.unsqueeze(1)], dim=1)
-
-        # Interleave
-        # Stack inputs and labels alternately
-        sequence = torch.empty(self.seq_length * 2, self.input_dim + 1)
-        sequence[0::2] = x_tokens
-        sequence[1::2] = y_tokens
-
-        return sequence
-
-    def _generate_data(self) -> Tensor:
+    def _generate_data(self) -> list[FunctionSequence]:
         """Generate all sequences."""
-        data = torch.empty(self.num_samples, self.seq_length * 2, self.input_dim + 1)
-        for i in range(self.num_samples):
-            data[i] = self._generate_sequence()
-
-        return data
+        return [self._generate_sequence() for _ in range(self.num_samples)]
 
     def __len__(self):
         return self.num_samples
@@ -186,88 +168,8 @@ class BooleanFunctionDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-
-def data_visualizer(
-    function_class: FunctionClass,
-    input_dim: int,
-    seq_length: int,
-    dataset: BooleanFunctionDataset,
-):
-    # TODO: this should probably be in a notebook
-
-    logger.info(f"Dataset type: {type(dataset)}")
-    logger.info(f"Dataset length: {len(dataset)}")
-    logger.info(f"Function class: {function_class}")
-    logger.info(f"Input dimension: {input_dim}")
-    logger.info(f"Sequence length: {seq_length}")
-
-    # Show first sequence in detail
-    logger.info(f"{'=' * 80}")
-    logger.info(f"FIRST SEQUENCE ANALYSIS (function: {function_class}):")
-    logger.info(f"{'=' * 80}")
-
-    seq = dataset[0]
-    logger.info(f"Full sequence shape: {seq.shape}")
-    logger.info(
-        f"Expected shape: (2*seq_length, input_dim+1) = ({2 * seq_length}, {input_dim + 1})"
-    )
-
-    # Show the raw tensor (first few rows)
-    logger.info("First 6 rows of the raw tensor:")
-    for i in range(min(6, len(seq))):
-        logger.info(f"  Row {i:2d}: {seq[i].int().tolist()}")
-
-    # Decode the sequence
-    logger.info(f"{'=' * 80}")
-    logger.info("DECODED (x,y) PAIRS (first 5 examples):")
-    logger.info(f"{'=' * 80}")
-
-    for i in range(min(5, seq_length)):
-        x_vec = seq[2 * i]
-        y_vec = seq[2 * i + 1]
-
-        x_input = x_vec[:-1]  # Actual input bits
-        x_padding = x_vec[-1]  # Last element is padding (should be 0)
-
-        y_padding = y_vec[:-1]  # First elements are padding (should be all 0s)
-        y_label = y_vec[-1]  # Last element is the actual label
-
-        logger.info(f"Example {i}:")
-        logger.info(f"  x_{i}: {x_input.int().tolist()}")
-        logger.info(f"  x padding indicator: {x_padding.item()}")
-        logger.info(f"  y_{i}: {y_label.item():.0f}")
-        logger.info(f"  y padding: {y_padding.int().tolist()}")
-
-        binary = "".join(str(int(b)) for b in x_input)
-        grouped_binary = " ".join([binary[j : j + 4] for j in range(0, len(binary), 4)])
-        logger.info(f"  Binary: {grouped_binary}")
-
-    logger.info(f"{'=' * 80}")
-    logger.info("LABEL STATISTICS FOR FIRST SEQUENCE:")
-    logger.info(f"{'=' * 80}")
-
-    labels = []
-    for i in range(seq_length):
-        y_vec = seq[2 * i + 1]
-        y_label = y_vec[-1]
-        labels.append(int(y_label.item()))
-
-    logger.info(f"Labels: {labels}")
-    logger.info(f"Number of 1s: {sum(labels)}")
-    logger.info(f"Number of 0s: {len(labels) - sum(labels)}")
-    logger.info(f"Proportion of 1s: {sum(labels) / len(labels):.2f}")
-
-    logger.info(f"{'=' * 80}")
-    logger.info("CHECKING MULTIPLE SEQUENCES (first label from each):")
-    logger.info(f"{'=' * 80}")
-
-    for seq_idx in range(min(3, len(dataset))):
-        seq = dataset[seq_idx]
-        y_vec = seq[1]
-        y_label = y_vec[-1]
-        logger.info(f"Sequence {seq_idx}: first label = {int(y_label.item())}")
-
-        x0 = seq[0][:-1]
-        binary = "".join(str(int(b)) for b in x0)
-        grouped_binary = " ".join([binary[j : j + 4] for j in range(0, len(binary), 4)])
-        logger.info(f"            first input = {grouped_binary}")
+    @staticmethod
+    def collate_fn_feed_forward(batch: list[FunctionSequence]) -> dict[str, Tensor]:
+        x = [seq["x"].flatten() for seq in batch]
+        y = [seq["y"] for seq in batch]
+        return {"x": torch.stack(x), "y": torch.stack(y)}
