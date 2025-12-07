@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import TypedDict
+from typing import Callable, TypedDict
 
 import torch
 from torch.nn.modules.module import Module
@@ -27,6 +27,7 @@ class Trainer:
         model: Module,
         train_data: BooleanFunctionDataset,
         eval_data: BooleanFunctionDataset,
+        collate_fn: Callable,
         epochs: int = 10,
         batch_size: int = 16,
         out_dir: Path = Path("out/train"),
@@ -44,11 +45,13 @@ class Trainer:
             train_data,
             batch_size=batch_size,
             shuffle=True,
+            collate_fn=collate_fn,
         )
 
         self.eval_loader = DataLoader(
             eval_data,
             batch_size=batch_size,
+            collate_fn=collate_fn,
         )
 
         self.optimizer = AdamW(model.parameters())
@@ -66,20 +69,24 @@ class Trainer:
 
         self.model.train()
         for batch in tqdm(self.train_loader, desc="Train"):
-            x, y = batch
-            y_hat = self.model(x.to(torch.device))
-            train_loss += self.compute_loss(y, y_hat)
+            batch = {k: v.to(self.device) for k, v in batch.items()}
+
+            y_hat = self.model(batch["x"])
+            loss = torch.nn.functional.cross_entropy(y_hat, batch["y"])
+            loss.backward()
+
             self.optimizer.step()
             self.optimizer.zero_grad()
 
+            train_loss += loss.item()
+
         self.model.eval()
         for batch in tqdm(self.eval_loader, desc="Eval"):
-            x, y = batch
-
+            batch = {k: v.to(self.device) for k, v in batch.items()}
             with torch.no_grad():
-                y_hat = self.model(x.to(torch.device))
+                y_hat = self.model(batch["x"])
 
-            eval_loss += self.compute_loss(y, y_hat)
+            eval_loss += torch.nn.functional.cross_entropy(y_hat, batch["y"]).item()
 
         avg_train_loss = train_loss / len(self.train_loader)
         avg_eval_loss = eval_loss / len(self.eval_loader)
@@ -106,7 +113,3 @@ class Trainer:
         logger.info("save model telemetry to %s", telemetry_path)
         with open(telemetry_path, "w") as f:
             json.dump(self.telemetry, f)
-
-    @staticmethod
-    def compute_loss(_label, _pred):
-        raise NotImplementedError()
