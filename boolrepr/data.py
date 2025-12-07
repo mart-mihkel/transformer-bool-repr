@@ -1,6 +1,6 @@
 import random
 import logging
-from typing import Callable, Literal
+from typing import Literal
 
 import numpy as np
 import torch
@@ -27,8 +27,12 @@ class BooleanFunctionDataset(Dataset):
         function_class: FunctionClass = "conjunction",
         noise_prob: float = 0.0,
         teaching_sequence: bool = False,
-        seed: int | None = 42,
+        seed: int | None = None,
     ):
+        assert function_class in ["conjunction", "disjunction", "parity", "majority"], (
+            "Invalid function class"
+        )
+
         self.num_samples = num_samples
         self.seq_length = seq_length
         self.input_dim = input_dim
@@ -43,20 +47,20 @@ class BooleanFunctionDataset(Dataset):
 
         self.data = self._generate_data()
 
-    def _generate_function(self) -> Callable[[Tensor], Tensor]:
+    def _generate_labels(self, x: Tensor) -> Tensor:
         """Generate a function from the specified class."""
         if self.function_class == "conjunction":
-            return self._generate_conjunction()
-        elif self.function_class == "disjunction":
-            return self._generate_disjunction()
-        elif self.function_class == "parity":
-            return self._generate_parity()
-        elif self.function_class == "majority":
-            return self._generate_majority()
-        else:
-            raise ValueError(f"Unknown function class: {self.function_class}")
+            return self._generate_conjunction(x)
 
-    def _generate_conjunction(self) -> Callable[[Tensor], Tensor]:
+        if self.function_class == "disjunction":
+            return self._generate_disjunction(x)
+
+        if self.function_class == "parity":
+            return self._generate_parity(x)
+
+        return self._generate_majority(x)
+
+    def _generate_conjunction(self, x: Tensor) -> Tensor:
         """
         Generate a random conjunction function.
         Each literal (x_i or ¬x_i) has 30% probability of being included.
@@ -71,19 +75,17 @@ class BooleanFunctionDataset(Dataset):
                 literals.append((i, 0))
             # Otherwise exclude
 
-        def conjunction_func(x: Tensor) -> Tensor:
-            """Evaluate the conjunction on input x."""
-            result = torch.ones(x.shape[0], dtype=torch.float32)
-            for var_idx, is_positive in literals:
-                if is_positive:
-                    result = result * x[:, var_idx]
-                else:
-                    result = result * (1 - x[:, var_idx])
-            return result
+        # Evaluate the conjunction on input x.
+        result = torch.ones(x.shape[0], dtype=torch.float32)
+        for var_idx, is_positive in literals:
+            if is_positive:
+                result = result * x[:, var_idx]
+            else:
+                result = result * (1 - x[:, var_idx])
 
-        return conjunction_func
+        return result
 
-    def _generate_parity(self, k: int = 2) -> Callable[[Tensor], Tensor]:
+    def _generate_parity(self, x: Tensor, k: int = 2) -> Tensor:
         """
         Generate a parity function on k random variables.
         For PARITY-(n,k).
@@ -91,17 +93,14 @@ class BooleanFunctionDataset(Dataset):
         # Randomly select k variables
         relevant_vars = random.sample(range(self.input_dim), k)
 
-        def parity_func(x: Tensor) -> Tensor:
-            """Compute XOR of relevant variables."""
-            # Take only relevant variables
-            relevant = x[:, relevant_vars]
-            # Compute XOR: sum mod 2
-            parity = torch.sum(relevant, dim=1) % 2
-            return parity.float()
+        # Compute XOR of relevant variables.
+        # Take only relevant variables
+        relevant = x[:, relevant_vars]
+        # Compute XOR: sum mod 2
+        parity = torch.sum(relevant, dim=1) % 2
+        return parity.float()
 
-        return parity_func
-
-    def _generate_disjunction(self) -> Callable[[Tensor], Tensor]:
+    def _generate_disjunction(self, x: Tensor) -> Tensor:
         """Generate a random disjunction function."""
         # Similar to conjunction but with OR instead of AND
         literals = []
@@ -112,37 +111,32 @@ class BooleanFunctionDataset(Dataset):
             elif r < 0.30:
                 literals.append((i, 0))
 
-        def disjunction_func(x: Tensor) -> Tensor:
-            result = torch.zeros(x.shape[0], dtype=torch.float32)
-            for var_idx, is_positive in literals:
-                if is_positive:
-                    result = result + x[:, var_idx]
-                else:
-                    result = result + (1 - x[:, var_idx])
-            # OR operation: if any literal is true, result > 0
-            return (result > 0).float()
+        result = torch.zeros(x.shape[0], dtype=torch.float32)
+        for var_idx, is_positive in literals:
+            if is_positive:
+                result = result + x[:, var_idx]
+            else:
+                result = result + (1 - x[:, var_idx])
 
-        return disjunction_func
+        # OR operation: if any literal is true, result > 0
+        return (result > 0).float()
 
-    def _generate_majority(self) -> Callable[[Tensor], Tensor]:
+    def _generate_majority(self, x: Tensor) -> Tensor:
         """Generate a majority function on a random subset of variables."""
         # Random subset of variables (size ~n/3)
         subset_size = max(1, self.input_dim // 3)
         relevant_vars = random.sample(range(self.input_dim), subset_size)
 
-        def majority_func(x: Tensor) -> Tensor:
-            relevant = x[:, relevant_vars]
-            # Majority: if more than half are 1, output 1
-            majority_threshold = relevant.shape[1] / 2
-            return (torch.sum(relevant, dim=1) > majority_threshold).float()
+        relevant = x[:, relevant_vars]
+        # Majority: if more than half are 1, output 1
+        majority_threshold = relevant.shape[1] / 2
+        return (torch.sum(relevant, dim=1) > majority_threshold).float()
 
-        return majority_func
-
-    def _generate_inputs(self, num_inputs: int) -> Tensor:
+    def _generate_inputs(self) -> Tensor:
         """Generate random Boolean inputs."""
         # The paper uses a modified distribution for some tasks.
         # We just use uniform for now.
-        return torch.bernoulli(0.5 * torch.ones(num_inputs, self.input_dim))
+        return torch.bernoulli(0.5 * torch.ones(self.seq_length, self.input_dim))
 
     def _create_teaching_sequence(self) -> Tensor:
         """Create a teaching sequence for the given function."""
@@ -151,15 +145,9 @@ class BooleanFunctionDataset(Dataset):
 
     def _generate_sequence(self) -> Tensor:
         """Generate one complete sequence with unified dimensions."""
-        func = self._generate_function()
+        inputs = self._generate_inputs()
+        labels = self._generate_labels(inputs)
 
-        # Generate inputs
-        all_inputs = self._generate_inputs(self.seq_length)
-
-        # Get labels
-        labels = func(all_inputs)
-
-        # Add noise
         if self.noise_prob > 0:
             noise_mask = torch.bernoulli(self.noise_prob * torch.ones_like(labels))
             labels = (labels + noise_mask) % 2
@@ -170,7 +158,7 @@ class BooleanFunctionDataset(Dataset):
 
         # Prepare x tokens: Pad with one zero at the end
         zeros_for_x = torch.zeros(self.seq_length, 1)
-        x_tokens = torch.cat([all_inputs, zeros_for_x], dim=1)
+        x_tokens = torch.cat([inputs, zeros_for_x], dim=1)
 
         # Prepare y tokens: Pad with zeros at the start, label at the end
         zeros_for_y = torch.zeros(self.seq_length, self.input_dim)
