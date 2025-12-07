@@ -1,19 +1,17 @@
-.PHONY: sync
 sync:
 	uv sync
-	uv pip install -e .
+	uv pip install --editable .
 
-.PHONY: format
+notebook:
+	uv run marimo edit notebooks
+
 format:
-	uv run ruff format
+	@uv run ruff format
 
-.PHONY: lint
 lint:
-	uv run ruff check --fix
+	@uv run ruff check --fix
 
-.PHONY: test
 test:
-	uv run pytest
+	@uv run pytest
 
-.PHONY: check
 check: format lint test
