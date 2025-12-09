@@ -35,6 +35,8 @@ class Trainer:
         batch_size: int = 16,
         out_dir: Path = Path("out/train"),
     ) -> None:
+        logger.info("init trainer")
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.epochs = epochs
@@ -62,7 +64,8 @@ class Trainer:
         self.model.train()
 
         train_loss = 0
-        for batch in tqdm(self.data_loader, desc="Train"):
+        pbar = tqdm(self.data_loader, desc="Train")
+        for i, batch in enumerate(pbar):
             batch: Batch
 
             x = batch["x"].to(self.device)
@@ -78,6 +81,7 @@ class Trainer:
             self.optimizer.zero_grad()
 
             train_loss += loss.item()
+            pbar.set_description(f"Train loss {train_loss / (i + 1):.4f}")
 
         avg_train_loss = train_loss / len(self.data_loader)
         logger.info("train loss: %.4f", avg_train_loss)
@@ -94,4 +98,3 @@ class Trainer:
         logger.info("save model telemetry to %s", telemetry_path)
         with open(telemetry_path, "w") as f:
             json.dump(self.telemetry, f)
-

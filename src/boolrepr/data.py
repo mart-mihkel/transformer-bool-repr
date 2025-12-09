@@ -25,6 +25,8 @@ class BooleanFunctionDataset(Dataset):
         function_class: FunctionClass = "conjunction",
         random_seed: int | None = None,
     ):
+        logger.info("init boolean function dataset")
+
         assert function_class in ["conjunction", "disjunction", "parity", "majority"], (
             "Invalid function class"
         )

@@ -69,6 +69,7 @@ def _(batch, model, torch):
 
     loss = torch.nn.functional.cross_entropy(y, y_hat)
     loss.backward()
+    loss.item()
     return
 
 

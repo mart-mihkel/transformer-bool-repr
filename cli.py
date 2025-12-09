@@ -15,9 +15,8 @@ def train(
         "conjunction", "disjunction", "parity", "majority"
     ] = "conjunction",
     input_dim: int = 8,
-    seq_length: int = 32,
     epochs: int = 25,
-    batch_size: int = 32,
+    batch_size: int = 128,
     out_dir: str = "out/train",
     random_seed: int | None = None,
 ):
@@ -27,32 +26,24 @@ def train(
     from boolrepr.models import FeedForwardNetwork
     from boolrepr.trainer import Trainer
 
-    train_data = BooleanFunctionDataset(
-        input_dim=input_dim,
-        function_class=function_class,
-        random_seed=random_seed,
-    )
-
-    eval_data = BooleanFunctionDataset(
+    bool_function = BooleanFunctionDataset(
         input_dim=input_dim,
         function_class=function_class,
         random_seed=random_seed,
     )
 
     ffn = FeedForwardNetwork(
-        input_size=input_dim * seq_length,
+        input_size=input_dim,
         hidden_size=256,
-        out_size=seq_length,
+        out_size=1,
     )
 
     trainer = Trainer(
         model=ffn,
-        train_data=train_data,
-        eval_data=eval_data,
+        bool_function=bool_function,
         epochs=epochs,
         batch_size=batch_size,
         out_dir=Path(out_dir),
-        collate_fn=BooleanFunctionDataset.collate_fn,
     )
 
     trainer.train()

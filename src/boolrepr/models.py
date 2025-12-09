@@ -6,7 +6,6 @@ import torch
 from torch import Tensor
 from torch.nn import (
     GELU,
-    Embedding,
     LayerNorm,
     Linear,
     Module,
@@ -170,10 +169,7 @@ class TransformerEncoder(Module):
         super().__init__()
 
         self.blocks = ModuleList(
-            [
-                TransformerBlock(1, num_heads, hidden_dim)
-                for _ in range(num_blocks)
-            ]
+            [TransformerBlock(1, num_heads, hidden_dim) for _ in range(num_blocks)]
         )
 
         self.classify = nn.Sequential(Linear(embed_dim, num_classes), nn.Sigmoid())
@@ -182,7 +178,6 @@ class TransformerEncoder(Module):
         self,
         input_ids: Annotated[Tensor, "batch sequence"],
     ) -> Annotated[Tensor, "batch class"]:
-
         out = input_ids
 
         for block in self.blocks:
