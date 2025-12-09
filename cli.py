@@ -6,10 +6,10 @@ import typer
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("boolrepr")
 
-app = typer.Typer()
+app = typer.Typer(add_completion=False)
 
 
-@app.command()
+@app.command(help="Fit a feed forward network to a boolean function")
 def train_ffn(
     function_class: Literal[
         "conjunction",
@@ -57,7 +57,7 @@ def train_ffn(
     trainer.train()
 
 
-@app.command()
+@app.command(help="Fit a transformer model to a boolean function")
 def train_transformer(
     function_class: Literal[
         "conjunction",
