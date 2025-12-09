@@ -54,18 +54,19 @@ class ParallelFeedForwardNetworks(Module):
     def __init__(
         self,
         num_models: int,
-        in_size: int = 64,
+        input_size: int = 64,
         hidden_size: int = 256,
         out_size: int = 1,
     ):
-        assert num_models > 0, f"Invalid number of networks: {num_models}"
+        assert num_models > 0, "Non-positive number of networks"
 
         super(ParallelFeedForwardNetworks, self).__init__()
 
+        self.num_models = num_models
         self.nets = ModuleList(
             [
                 FeedForwardNetwork(
-                    input_size=in_size,
+                    input_size=input_size,
                     hidden_size=hidden_size,
                     out_size=out_size,
                 )
@@ -74,13 +75,16 @@ class ParallelFeedForwardNetworks(Module):
         )
 
     def forward(
-        self, xs: Annotated[Tensor, "batch networks hidden"]
-    ) -> Annotated[Tensor, "batch networks out"]:
-        assert len(self.nets) == xs.shape[0], "Invalid input shape"
+        self, x: Annotated[Tensor, "batch input"]
+    ) -> Annotated[Tensor, "batch out"]:
+        b = x.shape[0]
+        n = self.num_models
 
-        out = [net(x) for net, x in zip(self.nets, xs)]
+        assert b % n == 0, "Batch size not divisib by number of networks"
 
-        return torch.stack(out)
+        chunks = x.view(n, b // n, -1)
+        out = [net(c) for net, c in zip(self.nets, chunks)]
+        return torch.cat(out, dim=0)
 
 
 class MultiHeadAttention(Module):

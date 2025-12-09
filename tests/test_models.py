@@ -13,15 +13,15 @@ def test_parallel_networks():
 
     model = ParallelFeedForwardNetworks(
         num_models=n_nets,
-        in_size=d_in,
+        input_size=d_in,
         hidden_size=hidden,
         out_size=d_out,
     )
 
-    x = torch.randn(n_nets, batch, d_in)
+    x = torch.randn(batch, d_in)
     y = model.forward(x)
 
-    assert y.shape == (n_nets, batch, d_out)
+    assert y.shape == (batch, d_out)
 
 
 def test_multi_head_attention():
