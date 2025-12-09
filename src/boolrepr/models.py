@@ -171,12 +171,12 @@ class TransformerEncoder(Module):
 
         self.blocks = ModuleList(
             [
-                TransformerBlock(embed_dim, num_heads, hidden_dim)
+                TransformerBlock(1, num_heads, hidden_dim)
                 for _ in range(num_blocks)
             ]
         )
 
-        self.classify = Linear(embed_dim, num_classes)
+        self.classify = nn.Sequential(Linear(embed_dim, num_classes), nn.Sigmoid())
 
     def forward(
         self,
@@ -190,6 +190,5 @@ class TransformerEncoder(Module):
 
         out = out[:, 0, :]
         out = self.classify(out)
-        out = torch.nn.functional.softmax(out, dim=-1)
 
         return out
