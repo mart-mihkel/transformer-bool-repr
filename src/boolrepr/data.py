@@ -22,7 +22,7 @@ class BooleanFunctionDataset(Dataset):
     def __init__(
         self,
         input_dim: int = 28,
-        k: int = 2,
+        parity_relevant_vars: int = 2,
         function_class: FunctionClass = "conjunction",
         random_seed: int | None = None,
         transformer: bool = False,
@@ -34,9 +34,8 @@ class BooleanFunctionDataset(Dataset):
         )
 
         self.input_dim = input_dim
-        self.seq_length = 2**input_dim
         self.function_class = function_class
-        self.k = k
+        self.parity_relevant_vars = parity_relevant_vars
         self.transformer = transformer
 
         if random_seed is not None:
@@ -90,7 +89,7 @@ class BooleanFunctionDataset(Dataset):
         For PARITY-(n,k).
         """
         # Randomly select k variables
-        relevant_vars = random.sample(range(self.input_dim), self.k)
+        relevant_vars = random.sample(range(self.input_dim), self.parity_relevant_vars)
 
         # Compute XOR of relevant variables.
         # Take only relevant variables
@@ -146,10 +145,11 @@ class BooleanFunctionDataset(Dataset):
         # Turn variables into embeddings for the Transformer model
         if self.transformer:
             inputs = inputs.unsqueeze(1)
+
         return [{"x": x, "y": y} for x, y in zip(inputs, labels)]
 
     def __len__(self):
-        return self.seq_length
+        return 2**self.input_dim
 
     def __getitem__(self, idx):
         return self.data[idx]
