@@ -169,7 +169,6 @@ class TransformerEncoder(Module):
     ):
         super().__init__()
 
-        self.embedding = Embedding(voc_size, embed_dim)
         self.blocks = ModuleList(
             [
                 TransformerBlock(embed_dim, num_heads, hidden_dim)
@@ -181,19 +180,10 @@ class TransformerEncoder(Module):
 
     def forward(
         self,
-        input_ids: Annotated[Tensor, "batch sequence"] | None = None,
-        input_embeds: Annotated[Tensor, "batch sequence embed"] | None = None,
+        input_ids: Annotated[Tensor, "batch sequence"],
     ) -> Annotated[Tensor, "batch class"]:
-        assert input_ids is None or input_embeds is None, (
-            "You can only pass either input_ids or input_embeds"
-        )
 
-        if input_ids is not None:
-            out = self.embedding(input_ids)
-        else:
-            out = input_embeds
-
-        assert out is not None, "You must pass one of input_ids or input_embeds"
+        out = input_ids
 
         for block in self.blocks:
             out = block(out)
