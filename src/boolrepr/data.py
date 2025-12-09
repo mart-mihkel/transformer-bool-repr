@@ -22,6 +22,7 @@ class BooleanFunctionDataset(Dataset):
     def __init__(
         self,
         input_dim: int = 28,
+        k: int  = 2,
         function_class: FunctionClass = "conjunction",
         random_seed: int | None = None,
     ):
@@ -34,6 +35,7 @@ class BooleanFunctionDataset(Dataset):
         self.input_dim = input_dim
         self.seq_length = 2**input_dim
         self.function_class = function_class
+        self.k = k
 
         if random_seed is not None:
             random.seed(random_seed)
@@ -80,13 +82,13 @@ class BooleanFunctionDataset(Dataset):
 
         return result
 
-    def _generate_parity(self, x: Tensor, k: int = 2) -> Tensor:
+    def _generate_parity(self, x: Tensor) -> Tensor:
         """
         Generate a parity function on k random variables.
         For PARITY-(n,k).
         """
         # Randomly select k variables
-        relevant_vars = random.sample(range(self.input_dim), k)
+        relevant_vars = random.sample(range(self.input_dim), self.k)
 
         # Compute XOR of relevant variables.
         # Take only relevant variables

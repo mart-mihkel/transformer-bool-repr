@@ -46,9 +46,16 @@ class Trainer:
 
         self.model = model.to(self.device)
         self.optimizer = AdamW(model.parameters())
+        train_dataset, test_dataset = torch.utils.data.random_split(bool_function, [0.9, 0.1])
 
         self.data_loader = DataLoader(
-            bool_function,
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+        )
+
+        self.eval_data_loader = DataLoader(
+            test_dataset,
             batch_size=batch_size,
             shuffle=True,
         )
@@ -59,6 +66,28 @@ class Trainer:
             self._epoch(epoch=epoch)
             self._save_checkpoint(epoch=epoch)
             self._save_telemetry()
+            self.evaluate()
+
+    def evaluate(self):
+        self.model.eval()
+
+        eval_acc = 0
+        pbar = tqdm(self.eval_data_loader, desc="Evaluation")
+        for i, batch in enumerate(pbar):
+            batch: Batch
+
+            x = batch["x"].to(self.device)
+            y = batch["y"].to(self.device)
+
+            y_hat = (self.model(x).flatten() > 0.5).int()
+
+            eval_acc += torch.sum(y_hat == y.int()) / len(x)
+
+            
+
+        avg_eval_acc = eval_acc / len(self.eval_data_loader)
+        logger.info("evaluation accuracy: %.4f", avg_eval_acc)
+        #self.telemetry.append({"epoch": epoch, "train_loss": avg_train_loss})
 
     def _epoch(self, epoch: int):
         self.model.train()
@@ -71,10 +100,9 @@ class Trainer:
             x = batch["x"].to(self.device)
             y = batch["y"].to(self.device)
 
-            out = self.model(x).flatten()
-            y_hat = torch.nn.functional.sigmoid(out)
+            y_hat = self.model(x).flatten()
 
-            loss = torch.nn.functional.cross_entropy(y_hat, y)
+            loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
             loss.backward()
 
             self.optimizer.step()
@@ -98,3 +126,4 @@ class Trainer:
         logger.info("save model telemetry to %s", telemetry_path)
         with open(telemetry_path, "w") as f:
             json.dump(self.telemetry, f)
+    

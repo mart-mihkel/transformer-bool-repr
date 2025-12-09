@@ -1,5 +1,6 @@
 import logging
 from typing import Literal
+import torch
 
 import typer
 
@@ -17,6 +18,7 @@ def train(
     input_dim: int = 8,
     epochs: int = 25,
     batch_size: int = 128,
+    k: int = 2,
     out_dir: str = "out/train",
     random_seed: int | None = None,
 ):
@@ -29,12 +31,15 @@ def train(
     bool_function = BooleanFunctionDataset(
         input_dim=input_dim,
         function_class=function_class,
+        k = k,
         random_seed=random_seed,
     )
 
+    logger.info(f"Dataset size: {len(bool_function.data)}")   
+
     ffn = FeedForwardNetwork(
         input_size=input_dim,
-        hidden_size=256,
+        hidden_size=8,
         out_size=1,
     )
 
@@ -46,8 +51,7 @@ def train(
         out_dir=Path(out_dir),
     )
 
-    trainer.train()
-
+    trainer.train() 
 
 if __name__ == "__main__":
     app()
