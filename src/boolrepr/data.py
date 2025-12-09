@@ -13,24 +13,17 @@ logger = logging.getLogger("boolrepr")
 type FunctionClass = Literal["conjunction", "disjunction", "parity", "majority"]
 
 
-class FunctionSequence(TypedDict):
-    x: Annotated[Tensor, "sequence input"]
-    y: Annotated[Tensor, "sequence"]
+class BooleanFunction(TypedDict):
+    x: Annotated[Tensor, "2**input input"]
+    y: Annotated[Tensor, "2**input"]
 
 
 class BooleanFunctionDataset(Dataset):
-    """
-    Generates sequences for in-context learning of Boolean functions.
-    Each sequence is: (x₁, f(x₁), x₂, f(x₂), ..., xₘ, f(xₘ))
-    """
-
     def __init__(
         self,
         input_dim: int = 28,
         function_class: FunctionClass = "conjunction",
-        noise_prob: float = 0.0,
-        teaching_sequence: bool = False,
-        seed: int | None = None,
+        random_seed: int | None = None,
     ):
         assert function_class in ["conjunction", "disjunction", "parity", "majority"], (
             "Invalid function class"
@@ -39,15 +32,13 @@ class BooleanFunctionDataset(Dataset):
         self.input_dim = input_dim
         self.seq_length = 2**input_dim
         self.function_class = function_class
-        self.noise_prob = noise_prob
-        self.teaching_sequence = teaching_sequence
 
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
-            torch.manual_seed(seed)
+        if random_seed is not None:
+            random.seed(random_seed)
+            np.random.seed(random_seed)
+            torch.manual_seed(random_seed)
 
-        self.data = self._generate_sequence()
+        self.data = self._generate_function()
 
     def _generate_labels(self, x: Tensor) -> Tensor:
         """Generate a function from the specified class."""
@@ -141,20 +132,10 @@ class BooleanFunctionDataset(Dataset):
         # Convert to tensor
         return torch.tensor(all_combinations, dtype=torch.float32)
 
-    def _create_teaching_sequence(self) -> Tensor:
-        """Create a teaching sequence for the given function."""
-        # TODO: Placeholder for now
-        return torch.empty(0)
-
-    def _generate_sequence(self) -> FunctionSequence:
+    def _generate_function(self) -> BooleanFunction:
         """Generate one complete sequence with all combinations."""
         inputs = self._generate_inputs()
         labels = self._generate_labels(inputs)
-
-        if self.noise_prob > 0:
-            noise_mask = torch.bernoulli(self.noise_prob * torch.ones_like(labels))
-            labels = (labels + noise_mask) % 2
-
         return {"x": inputs, "y": labels}
 
     def __len__(self):
@@ -162,9 +143,3 @@ class BooleanFunctionDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.data[idx]
-
-    @staticmethod
-    def collate_fn_feed_forward(batch: list[FunctionSequence]) -> dict[str, Tensor]:
-        x = [seq["x"].flatten() for seq in batch]
-        y = [seq["y"] for seq in batch]
-        return {"x": torch.stack(x), "y": torch.stack(y)}

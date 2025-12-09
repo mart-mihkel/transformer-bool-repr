@@ -30,13 +30,13 @@ def train(
     train_data = BooleanFunctionDataset(
         input_dim=input_dim,
         function_class=function_class,
-        seed=random_seed,
+        random_seed=random_seed,
     )
 
     eval_data = BooleanFunctionDataset(
         input_dim=input_dim,
         function_class=function_class,
-        seed=random_seed,
+        random_seed=random_seed,
     )
 
     ffn = FeedForwardNetwork(
@@ -52,7 +52,7 @@ def train(
         epochs=epochs,
         batch_size=batch_size,
         out_dir=Path(out_dir),
-        collate_fn=BooleanFunctionDataset.collate_fn_feed_forward,
+        collate_fn=BooleanFunctionDataset.collate_fn,
     )
 
     trainer.train()

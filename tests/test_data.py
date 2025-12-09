@@ -9,7 +9,7 @@ def test_data_shape():
         seq_length=seq,
         input_dim=d_in,
         noise_prob=0,
-        seed=1,
+        random_seed=1,
     )
 
     data = dataset.data
