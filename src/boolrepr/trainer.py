@@ -2,9 +2,10 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Callable, TypedDict
+from typing import Annotated, TypedDict
 
 import torch
+from torch import Tensor
 from torch.nn.modules.module import Module
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
@@ -18,16 +19,18 @@ logger = logging.getLogger("boolrepr")
 class Telemetry(TypedDict):
     epoch: int
     train_loss: float
-    eval_loss: float
+
+
+class Batch(TypedDict):
+    x: Annotated[Tensor, "batch input"]
+    y: Annotated[Tensor, "input"]
 
 
 class Trainer:
     def __init__(
         self,
         model: Module,
-        train_data: BooleanFunctionDataset,
-        eval_data: BooleanFunctionDataset,
-        collate_fn: Callable,
+        bool_function: BooleanFunctionDataset,
         epochs: int = 10,
         batch_size: int = 16,
         out_dir: Path = Path("out/train"),
@@ -40,21 +43,14 @@ class Trainer:
         self.telemetry: list[Telemetry] = []
 
         self.model = model.to(self.device)
-
-        self.train_loader = DataLoader(
-            train_data,
-            batch_size=batch_size,
-            shuffle=True,
-            collate_fn=collate_fn,
-        )
-
-        self.eval_loader = DataLoader(
-            eval_data,
-            batch_size=batch_size,
-            collate_fn=collate_fn,
-        )
-
         self.optimizer = AdamW(model.parameters())
+
+        self.data_loader = DataLoader(
+            bool_function,
+            shuffle=True,
+            batch_size=batch_size,
+            # collate_fn=BooleanFunctionDataset.collate_fn,
+        )
 
     def train(self):
         for epoch in range(1, self.epochs + 1):
@@ -64,15 +60,16 @@ class Trainer:
             self._save_telemetry()
 
     def _epoch(self, epoch: int):
-        train_loss = 0
-        eval_loss = 0
-
         self.model.train()
-        for batch in tqdm(self.train_loader, desc="Train"):
-            batch = {k: v.to(self.device) for k, v in batch.items()}
 
-            y_hat = self.model(batch["x"])
-            loss = torch.nn.functional.cross_entropy(y_hat, batch["y"])
+        train_loss = 0
+        for batch in tqdm(self.data_loader, desc="Train"):
+            batch: Batch
+            x = batch["x"].to(self.device)
+            y = batch["y"].to(self.device)
+
+            y_hat = self.model(x)
+            loss = torch.nn.functional.cross_entropy(y_hat, y)
             loss.backward()
 
             self.optimizer.step()
@@ -80,27 +77,9 @@ class Trainer:
 
             train_loss += loss.item()
 
-        self.model.eval()
-        for batch in tqdm(self.eval_loader, desc="Eval"):
-            batch = {k: v.to(self.device) for k, v in batch.items()}
-            with torch.no_grad():
-                y_hat = self.model(batch["x"])
-
-            eval_loss += torch.nn.functional.cross_entropy(y_hat, batch["y"]).item()
-
-        avg_train_loss = train_loss / len(self.train_loader)
-        avg_eval_loss = eval_loss / len(self.eval_loader)
-
+        avg_train_loss = train_loss / len(self.data_loader)
         logger.info("train loss: %.4f", avg_train_loss)
-        logger.info("eval loss:  %.4f", avg_eval_loss)
-
-        self.telemetry.append(
-            {
-                "epoch": epoch,
-                "train_loss": avg_train_loss,
-                "eval_loss": avg_eval_loss,
-            }
-        )
+        self.telemetry.append({"epoch": epoch, "train_loss": avg_train_loss})
 
     def _save_checkpoint(self, epoch: int):
         os.makedirs(self.out_dir, exist_ok=True)
