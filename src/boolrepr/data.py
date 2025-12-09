@@ -1,3 +1,4 @@
+import itertools
 import logging
 import random
 from typing import Annotated, Literal, TypedDict
@@ -25,8 +26,6 @@ class BooleanFunctionDataset(Dataset):
 
     def __init__(
         self,
-        num_samples: int = 10000,
-        seq_length: int = 70,
         input_dim: int = 28,
         function_class: FunctionClass = "conjunction",
         noise_prob: float = 0.0,
@@ -37,9 +36,8 @@ class BooleanFunctionDataset(Dataset):
             "Invalid function class"
         )
 
-        self.num_samples = num_samples
-        self.seq_length = seq_length
         self.input_dim = input_dim
+        self.seq_length = 2**input_dim
         self.function_class = function_class
         self.noise_prob = noise_prob
         self.teaching_sequence = teaching_sequence
@@ -49,7 +47,7 @@ class BooleanFunctionDataset(Dataset):
             np.random.seed(seed)
             torch.manual_seed(seed)
 
-        self.data = self._generate_data()
+        self.data = self._generate_sequence()
 
     def _generate_labels(self, x: Tensor) -> Tensor:
         """Generate a function from the specified class."""
@@ -137,10 +135,11 @@ class BooleanFunctionDataset(Dataset):
         return (torch.sum(relevant, dim=1) > majority_threshold).float()
 
     def _generate_inputs(self) -> Tensor:
-        """Generate random Boolean inputs."""
-        # The paper uses a modified distribution for some tasks.
-        # We just use uniform for now.
-        return torch.bernoulli(0.5 * torch.ones(self.seq_length, self.input_dim))
+        """Generate all possible Boolean input combinations."""
+        # Create all combinations: [0,0,0], [0,0,1], [0,1,0], ..., [1,1,1]
+        all_combinations = list(itertools.product([0, 1], repeat=self.input_dim))
+        # Convert to tensor
+        return torch.tensor(all_combinations, dtype=torch.float32)
 
     def _create_teaching_sequence(self) -> Tensor:
         """Create a teaching sequence for the given function."""
@@ -148,7 +147,7 @@ class BooleanFunctionDataset(Dataset):
         return torch.empty(0)
 
     def _generate_sequence(self) -> FunctionSequence:
-        """Generate one complete sequence with unified dimensions."""
+        """Generate one complete sequence with all combinations."""
         inputs = self._generate_inputs()
         labels = self._generate_labels(inputs)
 
@@ -158,12 +157,8 @@ class BooleanFunctionDataset(Dataset):
 
         return {"x": inputs, "y": labels}
 
-    def _generate_data(self) -> list[FunctionSequence]:
-        """Generate all sequences."""
-        return [self._generate_sequence() for _ in range(self.num_samples)]
-
     def __len__(self):
-        return self.num_samples
+        return self.seq_length
 
     def __getitem__(self, idx):
         return self.data[idx]

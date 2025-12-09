@@ -28,16 +28,12 @@ def train(
     from boolrepr.trainer import Trainer
 
     train_data = BooleanFunctionDataset(
-        num_samples=10_000,
-        seq_length=seq_length,
         input_dim=input_dim,
         function_class=function_class,
         seed=random_seed,
     )
 
     eval_data = BooleanFunctionDataset(
-        num_samples=1000,
-        seq_length=seq_length,
         input_dim=input_dim,
         function_class=function_class,
         seed=random_seed,
