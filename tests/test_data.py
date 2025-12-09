@@ -12,9 +12,7 @@ def test_data_shape():
     )
 
     data = dataset.data
-    x = data["x"]
-    y = data["y"]
+    x = data[0]["x"]
 
-    assert len(data) == 2
-    assert x.shape == (seq, d_in)
-    assert y.shape == (seq,)
+    assert len(data) == seq
+    assert len(x) == d_in

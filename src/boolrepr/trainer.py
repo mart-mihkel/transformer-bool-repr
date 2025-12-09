@@ -46,7 +46,9 @@ class Trainer:
 
         self.model = model.to(self.device)
         self.optimizer = AdamW(model.parameters())
-        train_dataset, test_dataset = torch.utils.data.random_split(bool_function, [0.9, 0.1])
+        train_dataset, test_dataset = torch.utils.data.random_split(
+            bool_function, [0.9, 0.1]
+        )
 
         self.data_loader = DataLoader(
             train_dataset,
@@ -83,11 +85,9 @@ class Trainer:
 
             eval_acc += torch.sum(y_hat == y.int()) / len(x)
 
-            
-
         avg_eval_acc = eval_acc / len(self.eval_data_loader)
         logger.info("evaluation accuracy: %.4f", avg_eval_acc)
-        #self.telemetry.append({"epoch": epoch, "train_loss": avg_train_loss})
+        # self.telemetry.append({"epoch": epoch, "train_loss": avg_train_loss})
 
     def _epoch(self, epoch: int):
         self.model.train()
@@ -126,4 +126,3 @@ class Trainer:
         logger.info("save model telemetry to %s", telemetry_path)
         with open(telemetry_path, "w") as f:
             json.dump(self.telemetry, f)
-    

@@ -12,7 +12,7 @@ from torch.nn import (
     ModuleList,
     ReLU,
     Sequential,
-    Sigmoid
+    Sigmoid,
 )
 
 logger = logging.getLogger("boolrepr")
@@ -37,7 +37,7 @@ class FeedForwardNetwork(Module):
             Linear(hidden_size, hidden_size),
             ReLU(),
             Linear(hidden_size, out_size),
-            Sigmoid()
+            Sigmoid(),
         )
 
     def forward(
@@ -170,7 +170,10 @@ class TransformerEncoder(Module):
         super().__init__()
 
         self.blocks = ModuleList(
-            [TransformerBlock(embed_dim, num_heads, hidden_dim) for _ in range(num_blocks)]
+            [
+                TransformerBlock(embed_dim, num_heads, hidden_dim)
+                for _ in range(num_blocks)
+            ]
         )
 
         self.classify = Sequential(Linear(embed_dim, num_classes), Sigmoid())

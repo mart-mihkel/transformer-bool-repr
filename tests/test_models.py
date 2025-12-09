@@ -50,10 +50,9 @@ def test_transformer_block():
 
 
 def test_transformer_encoder():
-    voc, batch, emb, seq, heads, blocks, classes = 10, 2, 8, 6, 4, 12, 14
+    batch, emb, seq, heads, blocks, classes = 2, 8, 6, 4, 12, 14
 
     enc = TransformerEncoder(
-        voc_size=voc,
         embed_dim=emb,
         num_heads=heads,
         hidden_dim=seq,
@@ -61,7 +60,7 @@ def test_transformer_encoder():
         num_classes=classes,
     )
 
-    x = torch.randint(low=1, high=voc, size=(batch, seq))
+    x = torch.randint(low=0, high=1, size=(batch, 1, emb)).float()
     y = enc.forward(x)
 
     assert y.shape == (batch, classes)

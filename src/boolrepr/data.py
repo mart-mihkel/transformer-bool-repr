@@ -22,10 +22,10 @@ class BooleanFunctionDataset(Dataset):
     def __init__(
         self,
         input_dim: int = 28,
-        k: int  = 2,
+        k: int = 2,
         function_class: FunctionClass = "conjunction",
         random_seed: int | None = None,
-        transformer: bool = False
+        transformer: bool = False,
     ):
         logger.info("init boolean function dataset")
 
@@ -144,7 +144,7 @@ class BooleanFunctionDataset(Dataset):
         labels = self._generate_labels(inputs)
 
         # Turn variables into embeddings for the Transformer model
-        if(self.transformer):
+        if self.transformer:
             inputs = inputs.unsqueeze(1)
         return [{"x": x, "y": y} for x, y in zip(inputs, labels)]
 

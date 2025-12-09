@@ -1,6 +1,5 @@
 import logging
 from typing import Literal
-import torch
 
 import typer
 
@@ -9,6 +8,7 @@ logger = logging.getLogger("boolrepr")
 
 app = typer.Typer()
 
+
 @app.command()
 def train(
     function_class: Literal[
@@ -16,7 +16,7 @@ def train(
     ] = "conjunction",
     input_dim: int = 8,
     epochs: int = 25,
-    model_type: str = "ffn", # it seems typer doesn't support Literals
+    model_type: str = "ffn",  # it seems typer doesn't support Literals
     batch_size: int = 128,
     k: int = 2,
     num_transformer_blocks: int = 3,
@@ -31,14 +31,13 @@ def train(
     from boolrepr.models import FeedForwardNetwork, TransformerEncoder
     from boolrepr.trainer import Trainer
 
-
-    if(model_type == "transformer"):
+    if model_type == "transformer":
         bool_function = BooleanFunctionDataset(
             input_dim=input_dim,
             function_class=function_class,
-            k = k,
+            k=k,
             random_seed=random_seed,
-            transformer=True
+            transformer=True,
         )
 
         model = TransformerEncoder(
@@ -46,13 +45,13 @@ def train(
             num_heads=num_transformer_heads,
             hidden_dim=hidden_dim,
             num_blocks=num_transformer_blocks,
-            num_classes=1
+            num_classes=1,
         )
     else:
         bool_function = BooleanFunctionDataset(
             input_dim=input_dim,
             function_class=function_class,
-            k = k,
+            k=k,
             random_seed=random_seed,
         )
 
@@ -62,7 +61,7 @@ def train(
             out_size=1,
         )
 
-    logger.info(f"Dataset size: {len(bool_function.data)}")   
+    logger.info(f"Dataset size: {len(bool_function.data)}")
 
     trainer = Trainer(
         model=model,
@@ -72,7 +71,8 @@ def train(
         out_dir=Path(out_dir),
     )
 
-    trainer.train() 
+    trainer.train()
+
 
 if __name__ == "__main__":
     app()
