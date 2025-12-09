@@ -19,6 +19,8 @@ logger = logging.getLogger("boolrepr")
 class Telemetry(TypedDict):
     epoch: int
     train_loss: float
+    eval_loss: float
+    eval_accuracy: float
 
 
 class Batch(TypedDict):
@@ -46,20 +48,20 @@ class Trainer:
 
         self.model = model.to(self.device)
         self.optimizer = AdamW(model.parameters())
+
         train_dataset, test_dataset = torch.utils.data.random_split(
             bool_function, [0.9, 0.1]
         )
 
-        self.data_loader = DataLoader(
+        self.train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True,
         )
 
-        self.eval_data_loader = DataLoader(
+        self.eval_loader = DataLoader(
             test_dataset,
             batch_size=batch_size,
-            shuffle=True,
         )
 
     def train(self):
@@ -68,32 +70,12 @@ class Trainer:
             self._epoch(epoch=epoch)
             self._save_checkpoint(epoch=epoch)
             self._save_telemetry()
-            self.evaluate()
-
-    def evaluate(self):
-        self.model.eval()
-
-        eval_acc = 0
-        pbar = tqdm(self.eval_data_loader, desc="Evaluation")
-        for i, batch in enumerate(pbar):
-            batch: Batch
-
-            x = batch["x"].to(self.device)
-            y = batch["y"].to(self.device)
-
-            y_hat = (self.model(x).flatten() > 0.5).int()
-
-            eval_acc += torch.sum(y_hat == y.int()) / len(x)
-
-        avg_eval_acc = eval_acc / len(self.eval_data_loader)
-        logger.info("evaluation accuracy: %.4f", avg_eval_acc)
-        # self.telemetry.append({"epoch": epoch, "train_loss": avg_train_loss})
 
     def _epoch(self, epoch: int):
         self.model.train()
 
         train_loss = 0
-        pbar = tqdm(self.data_loader, desc="Train")
+        pbar = tqdm(self.train_loader, desc="Train")
         for i, batch in enumerate(pbar):
             batch: Batch
 
@@ -111,9 +93,41 @@ class Trainer:
             train_loss += loss.item()
             pbar.set_description(f"Train loss {train_loss / (i + 1):.4f}")
 
-        avg_train_loss = train_loss / len(self.data_loader)
-        logger.info("train loss: %.4f", avg_train_loss)
-        self.telemetry.append({"epoch": epoch, "train_loss": avg_train_loss})
+        self.model.eval()
+        eval_acc = 0
+        eval_loss = 0
+        pbar = tqdm(self.eval_loader, desc="Eval")
+        for i, batch in enumerate(pbar):
+            batch: Batch
+
+            x = batch["x"].to(self.device)
+            y = batch["y"].to(self.device)
+
+            with torch.no_grad():
+                y_hat = self.model(x).flatten()
+
+            loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
+
+            eval_loss += loss.item()
+            eval_acc += ((y_hat > 0.5) == y.bool()).float().mean().item()
+            pbar.set_description(f"Eval loss {eval_loss / (i + 1):.4f}")
+
+        avg_train_loss = train_loss / len(self.train_loader)
+        avg_eval_loss = eval_loss / len(self.eval_loader)
+        avg_eval_acc = eval_acc / len(self.eval_loader)
+
+        logger.info("train loss:    %.4f", avg_train_loss)
+        logger.info("eval loss:     %.4f", avg_eval_loss)
+        logger.info("eval accuracy: %.4f", avg_eval_acc)
+
+        self.telemetry.append(
+            {
+                "epoch": epoch,
+                "train_loss": avg_train_loss,
+                "eval_loss": avg_eval_loss,
+                "eval_accuracy": avg_eval_acc,
+            }
+        )
 
     def _save_checkpoint(self, epoch: int):
         os.makedirs(self.out_dir, exist_ok=True)
