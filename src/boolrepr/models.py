@@ -161,7 +161,6 @@ class TransformerBlock(Module):
 class TransformerEncoder(Module):
     def __init__(
         self,
-        voc_size: int,
         embed_dim: int,
         num_heads: int,
         hidden_dim: int,
@@ -171,7 +170,7 @@ class TransformerEncoder(Module):
         super().__init__()
 
         self.blocks = ModuleList(
-            [TransformerBlock(1, num_heads, hidden_dim) for _ in range(num_blocks)]
+            [TransformerBlock(embed_dim, num_heads, hidden_dim) for _ in range(num_blocks)]
         )
 
         self.classify = Sequential(Linear(embed_dim, num_classes), Sigmoid())

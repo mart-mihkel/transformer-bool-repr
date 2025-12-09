@@ -9,9 +9,15 @@ def _():
     import torch
     from torch.utils.data import DataLoader
 
-    from boolrepr.models import FeedForwardNetwork
+    from boolrepr.models import FeedForwardNetwork, TransformerEncoder
     from boolrepr.data import BooleanFunctionDataset
-    return BooleanFunctionDataset, DataLoader, FeedForwardNetwork, torch
+    return (
+        BooleanFunctionDataset,
+        DataLoader,
+        FeedForwardNetwork,
+        TransformerEncoder,
+        torch,
+    )
 
 
 @app.cell
@@ -29,6 +35,7 @@ def _(BooleanFunctionDataset, function_class, input_dim):
     train_dataset = BooleanFunctionDataset(
         input_dim=input_dim,
         function_class=function_class,
+        transformer=True
     )
     return (train_dataset,)
 
@@ -47,15 +54,22 @@ def _(DataLoader, batch_size, train_dataset):
 
 
 @app.cell
-def _(FeedForwardNetwork, device, input_dim):
+def _(FeedForwardNetwork, TransformerEncoder, device, input_dim):
     model = FeedForwardNetwork(
         input_size=input_dim,
         hidden_size=256,
         out_size=1,
-    )
+    ).to(device)
 
-    model = model.to(device)
-    model
+    model_transformer = TransformerEncoder(
+        embed_dim=input_dim,
+        num_heads=1,
+        hidden_dim=64,
+        num_blocks=1,
+        num_classes=1
+    ).to(device)
+
+    model_transformer
     return (model,)
 
 
@@ -65,11 +79,24 @@ def _(batch, model, torch):
     y = batch["y"]
 
     y_hat = model(x).flatten()
-    y_hat = torch.nn.functional.sigmoid(y_hat)
 
     loss = torch.nn.functional.cross_entropy(y, y_hat)
     loss.backward()
     loss.item()
+    return (x,)
+
+
+@app.cell
+def _(batch, model, torch, x):
+    x2 = batch["x"]
+    y2 = batch["y"]
+
+    y_hat2 = model(x).flatten()
+    print(y2)
+    print(y_hat2)
+    loss2 = torch.nn.functional.cross_entropy(y2, y_hat2)
+    loss2.backward()
+    loss2.item()
     return
 
 

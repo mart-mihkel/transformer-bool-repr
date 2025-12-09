@@ -25,6 +25,7 @@ class BooleanFunctionDataset(Dataset):
         k: int  = 2,
         function_class: FunctionClass = "conjunction",
         random_seed: int | None = None,
+        transformer: bool = False
     ):
         logger.info("init boolean function dataset")
 
@@ -36,6 +37,7 @@ class BooleanFunctionDataset(Dataset):
         self.seq_length = 2**input_dim
         self.function_class = function_class
         self.k = k
+        self.transformer = transformer
 
         if random_seed is not None:
             random.seed(random_seed)
@@ -140,6 +142,10 @@ class BooleanFunctionDataset(Dataset):
         """Generate one complete sequence with all combinations."""
         inputs = self._generate_inputs()
         labels = self._generate_labels(inputs)
+
+        # Turn variables into embeddings for the Transformer model
+        if(self.transformer):
+            inputs = inputs.unsqueeze(1)
         return [{"x": x, "y": y} for x, y in zip(inputs, labels)]
 
     def __len__(self):
