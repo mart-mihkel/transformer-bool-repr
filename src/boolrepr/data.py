@@ -13,9 +13,9 @@ logger = logging.getLogger("boolrepr")
 type FunctionClass = Literal["conjunction", "disjunction", "parity", "majority"]
 
 
-class BooleanFunction(TypedDict):
-    x: Annotated[Tensor, "2**input input"]
-    y: Annotated[Tensor, "2**input"]
+class BooleanExpression(TypedDict):
+    x: Annotated[Tensor, "input"]
+    y: Annotated[Tensor, "1"]
 
 
 class BooleanFunctionDataset(Dataset):
@@ -132,11 +132,11 @@ class BooleanFunctionDataset(Dataset):
         # Convert to tensor
         return torch.tensor(all_combinations, dtype=torch.float32)
 
-    def _generate_function(self) -> BooleanFunction:
+    def _generate_function(self) -> list[BooleanExpression]:
         """Generate one complete sequence with all combinations."""
         inputs = self._generate_inputs()
         labels = self._generate_labels(inputs)
-        return {"x": inputs, "y": labels}
+        return [{"x": x, "y": y} for x, y in zip(inputs, labels)]
 
     def __len__(self):
         return self.seq_length

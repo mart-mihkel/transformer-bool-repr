@@ -47,9 +47,8 @@ class Trainer:
 
         self.data_loader = DataLoader(
             bool_function,
-            shuffle=True,
             batch_size=batch_size,
-            # collate_fn=BooleanFunctionDataset.collate_fn,
+            shuffle=True,
         )
 
     def train(self):
@@ -65,10 +64,13 @@ class Trainer:
         train_loss = 0
         for batch in tqdm(self.data_loader, desc="Train"):
             batch: Batch
+
             x = batch["x"].to(self.device)
             y = batch["y"].to(self.device)
 
-            y_hat = self.model(x)
+            out = self.model(x).flatten()
+            y_hat = torch.nn.functional.sigmoid(out)
+
             loss = torch.nn.functional.cross_entropy(y_hat, y)
             loss.backward()
 
@@ -92,3 +94,4 @@ class Trainer:
         logger.info("save model telemetry to %s", telemetry_path)
         with open(telemetry_path, "w") as f:
             json.dump(self.telemetry, f)
+
