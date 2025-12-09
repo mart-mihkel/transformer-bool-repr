@@ -10,58 +10,94 @@ app = typer.Typer()
 
 
 @app.command()
-def train(
+def train_ffn(
     function_class: Literal[
-        "conjunction", "disjunction", "parity", "majority"
+        "conjunction",
+        "disjunction",
+        "parity",
+        "majority",
     ] = "conjunction",
     input_dim: int = 8,
     epochs: int = 25,
-    model_type: str = "ffn",  # it seems typer doesn't support Literals
     batch_size: int = 128,
-    k: int = 2,
-    num_transformer_blocks: int = 3,
-    num_transformer_heads: int = 2,
+    parity_relevant_vars: int = 2,
     hidden_dim: int = 64,
-    out_dir: str = "out/train",
+    out_dir: str = "out/ffn",
     random_seed: int | None = None,
 ):
     from pathlib import Path
 
     from boolrepr.data import BooleanFunctionDataset
-    from boolrepr.models import FeedForwardNetwork, TransformerEncoder
+    from boolrepr.models import FeedForwardNetwork
     from boolrepr.trainer import Trainer
 
-    if model_type == "transformer":
-        bool_function = BooleanFunctionDataset(
-            input_dim=input_dim,
-            function_class=function_class,
-            k=k,
-            random_seed=random_seed,
-            transformer=True,
-        )
+    bool_function = BooleanFunctionDataset(
+        input_dim=input_dim,
+        function_class=function_class,
+        parity_relevant_vars=parity_relevant_vars,
+        random_seed=random_seed,
+    )
 
-        model = TransformerEncoder(
-            embed_dim=input_dim,
-            num_heads=num_transformer_heads,
-            hidden_dim=hidden_dim,
-            num_blocks=num_transformer_blocks,
-            num_classes=1,
-        )
-    else:
-        bool_function = BooleanFunctionDataset(
-            input_dim=input_dim,
-            function_class=function_class,
-            k=k,
-            random_seed=random_seed,
-        )
+    logger.info("dataset size %d", len(bool_function))
 
-        model = FeedForwardNetwork(
-            input_size=input_dim,
-            hidden_size=hidden_dim,
-            out_size=1,
-        )
+    model = FeedForwardNetwork(
+        input_size=input_dim,
+        hidden_size=hidden_dim,
+        out_size=1,
+    )
 
-    logger.info(f"Dataset size: {len(bool_function.data)}")
+    trainer = Trainer(
+        model=model,
+        bool_function=bool_function,
+        epochs=epochs,
+        batch_size=batch_size,
+        out_dir=Path(out_dir),
+    )
+
+    trainer.train()
+
+
+@app.command()
+def train_transformer(
+    function_class: Literal[
+        "conjunction",
+        "disjunction",
+        "parity",
+        "majority",
+    ] = "conjunction",
+    input_dim: int = 8,
+    epochs: int = 25,
+    batch_size: int = 128,
+    parity_relevant_vars: int = 2,
+    num_blocks: int = 3,
+    num_heads: int = 2,
+    hidden_dim: int = 64,
+    out_dir: str = "out/transformer",
+    random_seed: int | None = None,
+):
+    from pathlib import Path
+
+    from boolrepr.data import BooleanFunctionDataset
+    from boolrepr.models import TransformerEncoder
+    from boolrepr.trainer import Trainer
+
+    bool_function = BooleanFunctionDataset(
+        input_dim=input_dim,
+        function_class=function_class,
+        parity_relevant_vars=parity_relevant_vars,
+        random_seed=random_seed,
+        transformer=True,
+    )
+
+    logger.info("dataset size %d", len(bool_function))
+
+    model = TransformerEncoder(
+        embed_dim=input_dim,
+        num_heads=num_heads,
+        hidden_dim=hidden_dim,
+        num_blocks=num_blocks,
+        num_classes=1,
+    )
 
     trainer = Trainer(
         model=model,
