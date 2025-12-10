@@ -22,6 +22,7 @@ def train_ffn(
     batch_size: int = 128,
     parity_relevant_vars: int = 2,
     hidden_dim: int = 64,
+    train_data_proportion: float = 0.8,
     out_dir: str = "out/ffn",
     random_seed: int | None = None,
 ):
@@ -51,6 +52,7 @@ def train_ffn(
         bool_function=bool_function,
         epochs=epochs,
         batch_size=batch_size,
+        train_data_proportion=train_data_proportion,
         out_dir=Path(out_dir),
     )
 
@@ -72,6 +74,7 @@ def train_transformer(
     num_blocks: int = 3,
     num_heads: int = 2,
     hidden_dim: int = 64,
+    train_data_proportion: float = 0.8,
     out_dir: str = "out/transformer",
     random_seed: int | None = None,
 ):
@@ -104,6 +107,7 @@ def train_transformer(
         bool_function=bool_function,
         epochs=epochs,
         batch_size=batch_size,
+        train_data_proportion=train_data_proportion,
         out_dir=Path(out_dir),
     )
 

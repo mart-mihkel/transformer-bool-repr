@@ -35,6 +35,7 @@ class Trainer:
         bool_function: BooleanFunctionDataset,
         epochs: int = 10,
         batch_size: int = 16,
+        train_data_proportion: float = 0.8,
         out_dir: Path = Path("out/train"),
     ) -> None:
         logger.info("init trainer")
@@ -50,7 +51,7 @@ class Trainer:
         self.optimizer = AdamW(model.parameters())
 
         train_dataset, test_dataset = torch.utils.data.random_split(
-            bool_function, [0.9, 0.1]
+            bool_function, [train_data_proportion, 1 - train_data_proportion]
         )
 
         self.train_loader = DataLoader(
