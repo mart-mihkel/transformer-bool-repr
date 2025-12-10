@@ -103,7 +103,7 @@ class MultiHeadAttention(Module):
     def forward(
         self,
         x: Annotated[Tensor, "batch sequence embed"],
-        mask: Annotated[Tensor, "sequence sequence"] | None = None,
+        mask: Annotated[Tensor, "sequence embed"] | None = None,
     ) -> Annotated[Tensor, "batch sequence embed"]:
         q, k, v = self.proj_qkv(x).chunk(3, dim=-1)
         q, k, v = map(self.head_partition, (q, k, v))
@@ -149,7 +149,7 @@ class TransformerBlock(Module):
     def forward(
         self,
         x: Annotated[Tensor, "batch sequence embed"],
-        mask: Annotated[Tensor, "sequence sequence"] | None = None,
+        mask: Annotated[Tensor, "sequence embed"] | None = None,
     ) -> Annotated[Tensor, "batch sequence embed"]:
         res = x
         out = self.attn(x, mask)
@@ -180,18 +180,20 @@ class TransformerEncoder(Module):
             ]
         )
 
-        self.classify = Sequential(Linear(embed_dim, num_classes), Sigmoid())
+        self.fc = Linear(embed_dim, num_classes)
+        self.sigmoid = Sigmoid()
 
     def forward(
         self,
-        input_ids: Annotated[Tensor, "batch sequence"],
+        input_embeds: Annotated[Tensor, "batch sequence embed"],
     ) -> Annotated[Tensor, "batch class"]:
-        out = input_ids
+        out = input_embeds
 
         for block in self.blocks:
             out = block(out)
 
         out = out[:, 0, :]
-        out = self.classify(out)
+        out = self.fc(out)
+        out = self.sigmoid(out)
 
         return out
