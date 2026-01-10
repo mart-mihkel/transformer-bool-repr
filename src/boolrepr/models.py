@@ -13,6 +13,7 @@ from torch.nn import (
     ReLU,
     Sequential,
     Sigmoid,
+    Tanh
 )
 
 logger = logging.getLogger("boolrepr")
@@ -34,16 +35,21 @@ class FeedForwardNetwork(Module):
         self.net = Sequential(
             Linear(input_size, hidden_size),
             ReLU(),
-            Linear(hidden_size, hidden_size),
-            ReLU(),
+        )
+        self.out = Sequential(
             Linear(hidden_size, out_size),
             Sigmoid(),
         )
 
     def forward(
-        self, x: Annotated[Tensor, "batch input"]
+        self, x: Annotated[Tensor, "batch input"],
+        return_layer: bool = False
     ) -> Annotated[Tensor, "batch out"]:
-        return self.net(x)
+        hidden_layer = self.net(x)
+        out = self.out(hidden_layer)
+        if(return_layer):
+            return out, hidden_layer
+        return out
 
 
 class ParallelFeedForwardNetworks(Module):
@@ -106,6 +112,7 @@ class MultiHeadAttention(Module):
         mask: Annotated[Tensor, "sequence embed"] | None = None,
     ) -> Annotated[Tensor, "batch sequence embed"]:
         q, k, v = self.proj_qkv(x).chunk(3, dim=-1)
+        #q, k, v = x, x, x
         q, k, v = map(self.head_partition, (q, k, v))
 
         attn_scores = q @ k.transpose(-1, -2) * self.scale
@@ -136,12 +143,13 @@ class TransformerBlock(Module):
     def __init__(self, embed_dim: int, num_heads: int, hidden_dim: int):
         super().__init__()
 
-        self.attn = MultiHeadAttention(embed_dim, num_heads)
-        self.ffn = Sequential(
+        #self.attn = MultiHeadAttention(embed_dim, num_heads)
+        self.attn = torch.nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
+        self.ffn1 = Sequential(
             Linear(embed_dim, hidden_dim),
             GELU(),
-            Linear(hidden_dim, embed_dim),
         )
+        self.ffn2 = Linear(hidden_dim, embed_dim)
 
         self.norm1 = LayerNorm(embed_dim)
         self.norm2 = LayerNorm(embed_dim)
@@ -150,16 +158,20 @@ class TransformerBlock(Module):
         self,
         x: Annotated[Tensor, "batch sequence embed"],
         mask: Annotated[Tensor, "sequence embed"] | None = None,
+        return_layer: bool = False
     ) -> Annotated[Tensor, "batch sequence embed"]:
         res = x
-        out = self.attn(x, mask)
+        #out = self.attn(x, mask)
+        out, _ = self.attn(x, x, x)
         out = self.norm1(out + res)
 
         res = out
-        out = self.ffn(out)
+        hidden_layer = self.ffn1(out)
+        out = self.ffn2(hidden_layer)
         out = self.norm2(out + res)
-
-        return out
+        if return_layer:
+            return out, hidden_layer
+        return out, None
 
 
 class TransformerEncoder(Module):
@@ -181,19 +193,22 @@ class TransformerEncoder(Module):
         )
 
         self.fc = Linear(embed_dim, num_classes)
-        self.sigmoid = Sigmoid()
+        self.sigmoid = Tanh() #Sigmoid()
 
     def forward(
         self,
         input_embeds: Annotated[Tensor, "batch sequence embed"],
+        return_layer: bool = False
     ) -> Annotated[Tensor, "batch class"]:
         out = input_embeds
 
         for block in self.blocks:
-            out = block(out)
-
-        out = out[:, 0, :]
-        out = self.fc(out)
-        out = self.sigmoid(out)
-
-        return out
+            out, hidden_layer = block(out, return_layer=return_layer)
+        if out.shape[1] == 1:
+            out = out[:, 0, :] # If sequence length = 1
+        out2 = self.fc(out)
+        out2 = self.sigmoid(out2)
+        if return_layer:
+            #return out2, hidden_layer.squeeze()
+            return out2, out
+        return out2

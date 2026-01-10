@@ -35,7 +35,7 @@ class BooleanFunctionDataset(Dataset):
 
         self.input_dim = input_dim
         self.function_class = function_class
-        self.parity_relevant_vars = parity_relevant_vars
+        self.parity_k = parity_relevant_vars
         self.transformer = transformer
 
         if random_seed is not None:
@@ -61,17 +61,17 @@ class BooleanFunctionDataset(Dataset):
     def _generate_conjunction(self, x: Tensor) -> Tensor:
         """
         Generate a random conjunction function.
-        Each literal (x_i or ¬x_i) has 30% probability of being included.
         """
         # For each variable, decide: 0=exclude, 1=include positive, 2=include negative
         literals = []
         for i in range(self.input_dim):
             r = random.random()
-            if r < 0.15:  # Include positive literal x_i
+            if r < 0.5:  # Include positive literal x_i
                 literals.append((i, 1))
-            elif r < 0.30:  # Include negative literal ¬x_i
+            else: # Include negative literal ¬x_i
                 literals.append((i, 0))
-            # Otherwise exclude
+
+        literals = random.sample(literals, self.parity_k) # Randomly select k literals to include
 
         # Evaluate the conjunction on input x.
         result = torch.ones(x.shape[0], dtype=torch.float32)
@@ -80,7 +80,7 @@ class BooleanFunctionDataset(Dataset):
                 result = result * x[:, var_idx]
             else:
                 result = result * (1 - x[:, var_idx])
-
+        self.relevant_vars = literals
         return result
 
     def _generate_parity(self, x: Tensor) -> Tensor:
@@ -89,11 +89,12 @@ class BooleanFunctionDataset(Dataset):
         For PARITY-(n,k).
         """
         # Randomly select k variables
-        relevant_vars = random.sample(range(self.input_dim), self.parity_relevant_vars)
+        self.relevant_vars = random.sample(range(self.input_dim), self.parity_k)
 
         # Compute XOR of relevant variables.
         # Take only relevant variables
-        relevant = x[:, relevant_vars]
+        relevant = x[:, self.relevant_vars]
+
         # Compute XOR: sum mod 2
         parity = torch.sum(relevant, dim=1) % 2
         return parity.float()
@@ -115,7 +116,7 @@ class BooleanFunctionDataset(Dataset):
                 result = result + x[:, var_idx]
             else:
                 result = result + (1 - x[:, var_idx])
-
+        self.relevant_vars = literals
         # OR operation: if any literal is true, result > 0
         return (result > 0).float()
 
@@ -123,9 +124,9 @@ class BooleanFunctionDataset(Dataset):
         """Generate a majority function on a random subset of variables."""
         # Random subset of variables (size ~n/3)
         subset_size = max(1, self.input_dim // 3)
-        relevant_vars = random.sample(range(self.input_dim), subset_size)
+        self.relevant_vars = random.sample(range(self.input_dim), subset_size)
 
-        relevant = x[:, relevant_vars]
+        relevant = x[:, self.relevant_vars]
         # Majority: if more than half are 1, output 1
         majority_threshold = relevant.shape[1] / 2
         return (torch.sum(relevant, dim=1) > majority_threshold).float()
@@ -141,6 +142,13 @@ class BooleanFunctionDataset(Dataset):
         """Generate one complete sequence with all combinations."""
         inputs = self._generate_inputs()
         labels = self._generate_labels(inputs)
+
+        # TESTING transforming {0,1} to {1, -1}
+
+        logger.info(sum(labels))
+        logger.info(len(labels))
+        inputs = (-1)**inputs
+        labels = (-1)**labels
 
         # Turn variables into embeddings for the Transformer model
         if self.transformer:

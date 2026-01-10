@@ -1,7 +1,8 @@
 import logging
 from typing import Literal
-
+import matplotlib.pyplot as plt
 import typer
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("boolrepr")
@@ -31,6 +32,7 @@ def train_ffn(
     from boolrepr.data import BooleanFunctionDataset
     from boolrepr.models import FeedForwardNetwork
     from boolrepr.trainer import Trainer
+    from boolrepr.clustering import Clustering
 
     bool_function = BooleanFunctionDataset(
         input_dim=input_dim,
@@ -38,7 +40,7 @@ def train_ffn(
         parity_relevant_vars=parity_relevant_vars,
         random_seed=random_seed,
     )
-
+    logger.info(f"relevant variables {bool_function.relevant_vars}")
     logger.info("dataset size %d", len(bool_function))
 
     model = FeedForwardNetwork(
@@ -57,6 +59,17 @@ def train_ffn(
     )
 
     trainer.train()
+
+    testing_epochs = list(range(1, epochs+1, 4))
+    cluster = Clustering(model, out_dir, testing_epochs, trainer.eval_loader, trainer.fourier_coefs)
+    cluster.correlate()
+    clusters_per_epoch = cluster.cluster_over_epochs()
+
+    plt.plot(clusters_per_epoch.keys(), clusters_per_epoch.values(), label="Clusters")
+    plt.plot(testing_epochs, [item["eval_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs], label="Eval accuracy", alpha=0.3)
+    plt.savefig("figure_FFN.pdf")
+    logger.info("Clustering info saved to figure_FFN.pdf")
+
 
 
 @app.command(help="Fit a transformer model to a boolean function")
@@ -83,6 +96,7 @@ def train_transformer(
     from boolrepr.data import BooleanFunctionDataset
     from boolrepr.models import TransformerEncoder
     from boolrepr.trainer import Trainer
+    from boolrepr.clustering import Clustering
 
     bool_function = BooleanFunctionDataset(
         input_dim=input_dim,
@@ -93,6 +107,7 @@ def train_transformer(
     )
 
     logger.info("dataset size %d", len(bool_function))
+    logger.info(f"relevant variables {bool_function.relevant_vars}")
 
     model = TransformerEncoder(
         embed_dim=input_dim,
@@ -112,7 +127,15 @@ def train_transformer(
     )
 
     trainer.train()
-
+    testing_epochs = list(range(1, epochs+1,4))
+    cluster = Clustering(model, out_dir, testing_epochs , trainer.eval_loader, trainer.fourier_coefs)
+    cluster.correlate()
+    clusters_per_epoch = cluster.cluster_over_epochs()
+    
+    plt.plot(clusters_per_epoch.keys(), clusters_per_epoch.values())
+    plt.plot(testing_epochs, [item["eval_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs], label="Eval accuracy", alpha=0.3)
+    plt.savefig("figure_transformer.pdf")
+    logger.info("Clustering info saved to figure_transformer.pdf")
 
 if __name__ == "__main__":
     app()

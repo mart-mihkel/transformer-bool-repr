@@ -10,6 +10,7 @@ from torch.nn.modules.module import Module
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from itertools import combinations
 
 from boolrepr.data import BooleanFunctionDataset
 
@@ -50,6 +51,8 @@ class Trainer:
         self.model = model.to(self.device)
         self.optimizer = AdamW(model.parameters())
 
+        self.fourier_expand(bool_function.data)
+
         train_dataset, test_dataset = torch.utils.data.random_split(
             bool_function, [train_data_proportion, 1 - train_data_proportion]
         )
@@ -85,6 +88,10 @@ class Trainer:
 
             y_hat = self.model(x).flatten()
 
+            # TESTING (0,1) to (1, -1)
+            y_hat = ((-1) * y_hat + 1)/2
+            y = ((-1) * y + 1)/2
+
             loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
             loss.backward()
 
@@ -93,7 +100,10 @@ class Trainer:
 
             train_loss += loss.item()
             pbar.set_description(f"Train loss {train_loss / (i + 1):.4f}")
+        self._eval(epoch, train_loss)
 
+
+    def _eval(self, epoch: int, train_loss: int):
         self.model.eval()
         eval_acc = 0
         eval_loss = 0
@@ -106,6 +116,10 @@ class Trainer:
 
             with torch.no_grad():
                 y_hat = self.model(x).flatten()
+
+            # Testing (0,1) to (1, -1)
+            y_hat = ((-1) * y_hat + 1)/2
+            y = ((-1) * y + 1)/2
 
             loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
 
@@ -142,3 +156,45 @@ class Trainer:
         logger.info("save telemetry to %s", telemetry_path)
         with open(telemetry_path, "w") as f:
             json.dump(self.telemetry, f)
+
+    def fourier_expand(self, truth_table):
+        if len(truth_table[0]["x"]) == 1:
+            input_dim = len(truth_table[0]["x"][0])
+        else:
+            input_dim = len(truth_table[0]["x"])
+        assert 2**input_dim == len(truth_table), "Truth table size does not match input dimension"
+        input_indices = list(range(0,input_dim))
+        term_coefs = []
+        for size_of_term in range(0, input_dim+1):
+            term_indices = list(combinations(input_indices, size_of_term))
+            print(f"Terms of size {size_of_term}: {len(term_indices)}")
+            for index_combination in term_indices:
+                term_value = 0
+                for row in truth_table:
+                    temp_product = row["y"].item()
+                    for index in index_combination:
+                        if len(row["x"]) == 1:
+                            temp_product *= row["x"][0][index].item()
+                        else:
+                            temp_product *= row["x"][index].item()
+                    term_value += temp_product
+                term_value = (1/(2**input_dim)) * term_value
+                if term_value != 0:
+                    print(f"Term {index_combination} has value {term_value}")
+                """
+                term_value = 0
+                for row in truth_table:
+                    temp_product = (-1)**row["y"].item()
+                    for index in index_comb:
+                        if len(row["x"]) == 1:
+                            temp_product *= (-1)**row["x"][0][index].item()
+                        else:
+                            temp_product *= (-1)**row["x"][index].item()
+                    term_value += temp_product
+                if term_value != 0:
+                    print(f"Term {index_comb} has value {(1/(2**input_dim)) * term_value}")
+                """
+                term_coefs.append((index_combination, term_value))
+                
+        logger.info("Coefficients with non-zero values %d", sum([1 for term in term_coefs if term[1] != 0 ]))
+        self.fourier_coefs = term_coefs
