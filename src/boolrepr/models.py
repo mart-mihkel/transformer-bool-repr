@@ -34,10 +34,11 @@ class FeedForwardNetwork(Module):
 
         self.net = Sequential(
             Linear(input_size, hidden_size),
-            ReLU(),
+            Tanh(),
         )
         self.out = Sequential(
             Linear(hidden_size, out_size),
+            #Tanh()
             Sigmoid(),
         )
 
@@ -143,11 +144,11 @@ class TransformerBlock(Module):
     def __init__(self, embed_dim: int, num_heads: int, hidden_dim: int):
         super().__init__()
 
-        #self.attn = MultiHeadAttention(embed_dim, num_heads)
-        self.attn = torch.nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
+        self.attn = MultiHeadAttention(embed_dim, num_heads)
+        #self.attn = torch.nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
         self.ffn1 = Sequential(
             Linear(embed_dim, hidden_dim),
-            GELU(),
+            Tanh(),
         )
         self.ffn2 = Linear(hidden_dim, embed_dim)
 
@@ -161,8 +162,8 @@ class TransformerBlock(Module):
         return_layer: bool = False
     ) -> Annotated[Tensor, "batch sequence embed"]:
         res = x
-        #out = self.attn(x, mask)
-        out, _ = self.attn(x, x, x)
+        out = self.attn(x, mask)
+        #out, _ = self.attn(x)
         out = self.norm1(out + res)
 
         res = out
@@ -193,7 +194,7 @@ class TransformerEncoder(Module):
         )
 
         self.fc = Linear(embed_dim, num_classes)
-        self.sigmoid = Tanh() #Sigmoid()
+        self.sigmoid = Sigmoid()
 
     def forward(
         self,
@@ -205,10 +206,12 @@ class TransformerEncoder(Module):
         for block in self.blocks:
             out, hidden_layer = block(out, return_layer=return_layer)
         if out.shape[1] == 1:
+            if hidden_layer != None:
+                hidden_layer = hidden_layer[:, 0, :]
             out = out[:, 0, :] # If sequence length = 1
         out2 = self.fc(out)
         out2 = self.sigmoid(out2)
         if return_layer:
             #return out2, hidden_layer.squeeze()
-            return out2, out
+            return out2, hidden_layer
         return out2

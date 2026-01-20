@@ -50,8 +50,9 @@ class Trainer:
 
         self.model = model.to(self.device)
         self.optimizer = AdamW(model.parameters())
-
-        self.fourier_expand(bool_function.data)
+        self.fourier_coefs = None
+        #self.fourier_expand(bool_function)
+        
 
         train_dataset, test_dataset = torch.utils.data.random_split(
             bool_function, [train_data_proportion, 1 - train_data_proportion]
@@ -79,6 +80,7 @@ class Trainer:
         self.model.train()
 
         train_loss = 0
+        train_acc = 0
         pbar = tqdm(self.train_loader, desc="Train")
         for i, batch in enumerate(pbar):
             batch: Batch
@@ -88,22 +90,26 @@ class Trainer:
 
             y_hat = self.model(x).flatten()
 
-            # TESTING (0,1) to (1, -1)
-            y_hat = ((-1) * y_hat + 1)/2
+            # TESTING (-1,1) to (1, 0)
+            #y_hat = ((-1) * y_hat + 1)/2
+            
             y = ((-1) * y + 1)/2
-
             loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
+
+            #loss = torch.nn.functional.mse_loss(y_hat, y)
             loss.backward()
 
             self.optimizer.step()
             self.optimizer.zero_grad()
 
             train_loss += loss.item()
+            train_acc += ((y_hat > 0.5) == y.bool()).float().mean().item()
+            #train_acc += ((y_hat < 0) == (y < 0)).float().mean().item()
             pbar.set_description(f"Train loss {train_loss / (i + 1):.4f}")
-        self._eval(epoch, train_loss)
+        self._eval(epoch, train_loss, train_acc)
 
 
-    def _eval(self, epoch: int, train_loss: int):
+    def _eval(self, epoch: int, train_loss: float, train_acc : float):
         self.model.eval()
         eval_acc = 0
         eval_loss = 0
@@ -118,20 +124,25 @@ class Trainer:
                 y_hat = self.model(x).flatten()
 
             # Testing (0,1) to (1, -1)
-            y_hat = ((-1) * y_hat + 1)/2
+            #y_hat = ((-1) * y_hat + 1)/2
+            
             y = ((-1) * y + 1)/2
-
             loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
+
+            #loss = torch.nn.functional.mse_loss(y_hat, y)
 
             eval_loss += loss.item()
             eval_acc += ((y_hat > 0.5) == y.bool()).float().mean().item()
+            #eval_acc += ((y_hat < 0) == (y < 0)).float().mean().item()
             pbar.set_description(f"Eval loss {eval_loss / (i + 1):.4f}")
 
         avg_train_loss = train_loss / len(self.train_loader)
+        avg_train_acc = train_acc / len(self.train_loader)
         avg_eval_loss = eval_loss / len(self.eval_loader)
         avg_eval_acc = eval_acc / len(self.eval_loader)
 
         logger.info("train loss:    %.4f", avg_train_loss)
+        logger.info("train accuracy:    %.4f", avg_train_acc)
         logger.info("eval loss:     %.4f", avg_eval_loss)
         logger.info("eval accuracy: %.4f", avg_eval_acc)
 
@@ -139,6 +150,7 @@ class Trainer:
             {
                 "epoch": epoch,
                 "train_loss": avg_train_loss,
+                "train_accuracy": avg_train_acc,
                 "eval_loss": avg_eval_loss,
                 "eval_accuracy": avg_eval_acc,
             }
@@ -157,7 +169,8 @@ class Trainer:
         with open(telemetry_path, "w") as f:
             json.dump(self.telemetry, f)
 
-    def fourier_expand(self, truth_table):
+    def fourier_expand(self, dataset):
+        truth_table = dataset.data
         if len(truth_table[0]["x"]) == 1:
             input_dim = len(truth_table[0]["x"][0])
         else:
@@ -166,6 +179,8 @@ class Trainer:
         input_indices = list(range(0,input_dim))
         term_coefs = []
         for size_of_term in range(0, input_dim+1):
+            if size_of_term > len(dataset.relevant_vars):
+                break
             term_indices = list(combinations(input_indices, size_of_term))
             print(f"Terms of size {size_of_term}: {len(term_indices)}")
             for index_combination in term_indices:

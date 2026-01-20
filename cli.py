@@ -60,14 +60,13 @@ def train_ffn(
 
     trainer.train()
 
-    testing_epochs = list(range(1, epochs+1, 4))
-    cluster = Clustering(model, out_dir, testing_epochs, trainer.eval_loader, trainer.fourier_coefs)
-    cluster.correlate()
+    testing_epochs = list(range(1, epochs+1, max(epochs // 50, 1)))
+    cluster = Clustering(model, out_dir, testing_epochs, trainer.eval_loader, trainer.fourier_coefs, bool_function.relevant_vars)
+    cluster.test_ood(model)
+    #cluster.correlate()
     clusters_per_epoch = cluster.cluster_over_epochs()
 
-    plt.plot(clusters_per_epoch.keys(), clusters_per_epoch.values(), label="Clusters")
-    plt.plot(testing_epochs, [item["eval_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs], label="Eval accuracy", alpha=0.3)
-    plt.savefig("figure_FFN.pdf")
+    cluster.visualize(clusters_per_epoch, [item["eval_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs], [item["train_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs],"figure_FFN.pdf")
     logger.info("Clustering info saved to figure_FFN.pdf")
 
 
@@ -127,14 +126,13 @@ def train_transformer(
     )
 
     trainer.train()
-    testing_epochs = list(range(1, epochs+1,4))
-    cluster = Clustering(model, out_dir, testing_epochs , trainer.eval_loader, trainer.fourier_coefs)
+    testing_epochs = list(range(1, epochs+1, max(epochs // 50, 1)))
+    cluster = Clustering(model, out_dir, testing_epochs , trainer.eval_loader, trainer.fourier_coefs, bool_function.relevant_vars)
+    cluster.test_ood(model)
     cluster.correlate()
     clusters_per_epoch = cluster.cluster_over_epochs()
-    
-    plt.plot(clusters_per_epoch.keys(), clusters_per_epoch.values())
-    plt.plot(testing_epochs, [item["eval_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs], label="Eval accuracy", alpha=0.3)
-    plt.savefig("figure_transformer.pdf")
+
+    cluster.visualize(clusters_per_epoch, [item["eval_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs], [item["train_accuracy"] for item in trainer.telemetry if item["epoch"] in testing_epochs], "figure_transformer.pdf")
     logger.info("Clustering info saved to figure_transformer.pdf")
 
 if __name__ == "__main__":
