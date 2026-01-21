@@ -3,7 +3,6 @@ import logging
 import random
 from typing import Annotated, TypedDict
 
-import matplotlib.pyplot as plt
 import torch
 from sklearn.cluster import HDBSCAN, KMeans
 from sklearn.metrics.cluster import silhouette_score
@@ -100,41 +99,6 @@ class Clustering:
                 best_silhouette, best_k = silhouette_val, num_clusters
 
         return best_k
-
-    def visualize(
-        self,
-        cluster_map: dict[int, int],
-        eval_accs: list[int],
-        train_accs: list[int],
-        out_name: str | None = None,
-    ):
-        fig, ax1 = plt.subplots()
-
-        color = "tab:red"
-        ax1.set_xlabel("Epoch")
-        ax1.set_ylabel("Number of clusters", color=color)
-        ax1.plot(list(cluster_map.keys()), list(cluster_map.values()), color=color)
-        ax1.tick_params(axis="y", labelcolor=color)
-        ax1.annotate(
-            xy=(max(self.epochs), cluster_map[max(self.epochs)]),
-            xytext=(5, 0),
-            textcoords="offset points",
-            text=str(cluster_map[max(self.epochs)]),
-            va="center",
-        )
-        ax2 = ax1.twinx()
-
-        color = "tab:blue"
-        ax2.set_ylabel("Accuracy", color=color)
-        ax2.plot(list(cluster_map.keys()), eval_accs, color="darkblue", label="Eval")
-        ax2.plot(list(cluster_map.keys()), train_accs, color="lightblue", label="Train")
-        ax2.tick_params(axis="y", labelcolor=color)
-
-        fig.tight_layout()
-        plt.legend()
-
-        if out_name is not None:
-            plt.savefig(out_name)
 
     def get_fourier_series(self) -> tuple[list[int], Tensor]:
         if self.fourier_coefs is None:

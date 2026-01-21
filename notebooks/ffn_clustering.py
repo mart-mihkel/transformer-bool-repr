@@ -7,6 +7,8 @@ with app.setup:
     from boolrepr.clustering import Clustering
     from boolrepr.scripts.train_ffn import main as train_ffn
 
+    import polars as pl
+    import seaborn as sns
     import matplotlib.pyplot as plt
 
 
@@ -62,35 +64,100 @@ def _(
 
 @app.cell
 def _(epochs, func, model, out_dir, trainer):
-    testing_epochs = list(range(1, epochs + 1, max(epochs // 50, 1)))
+    _testing_epochs = list(range(1, epochs + 1, max(epochs // 50, 1)))
 
-    cluster = Clustering(
+    _cluster = Clustering(
         model,
         out_dir,
-        testing_epochs,
+        _testing_epochs,
         trainer.eval_loader,
         trainer.fourier_coefs,
         func.relevant_vars,
     )
 
-    cluster.test_ood(model)
-    # cluster.correlate()
-    clusters_per_epoch = cluster.cluster_over_epochs()
+    _cluster.test_ood(model)
+    _clusters_per_epoch = _cluster.cluster_over_epochs()
 
-    cluster.visualize(
-        clusters_per_epoch,
-        [
-            item["eval_accuracy"]
-            for item in trainer.telemetry
-            if item["epoch"] in testing_epochs
-        ],
-        [
-            item["train_accuracy"]
-            for item in trainer.telemetry
-            if item["epoch"] in testing_epochs
-        ],
+    _eval_accs = [
+        item["eval_accuracy"]
+        for item in trainer.telemetry
+        if item["epoch"] in _testing_epochs
+    ]
+
+    _train_accs = [
+        item["train_accuracy"]
+        for item in trainer.telemetry
+        if item["epoch"] in _testing_epochs
+    ]
+
+    df = pl.DataFrame(
+        data={
+            "Epoch": _clusters_per_epoch.keys(),
+            "Clusters": _clusters_per_epoch.values(),
+            "Train": _train_accs,
+            "Eval": _eval_accs,
+        }
     )
 
+    df
+    return (df,)
+
+
+@app.cell
+def _(df):
+    sns.set_style("white")
+    sns.set_context("talk")
+    palette = sns.color_palette("ch:s=.25,rot=-.25")
+    palette2 = sns.color_palette("flare")
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+    ax2 = ax1.twinx()
+
+    sns.lineplot(
+        data=df,
+        x="Epoch",
+        y="Clusters",
+        ax=ax1,
+        label="Clusters",
+        color=palette2[0],
+    )
+
+    sns.lineplot(
+        data=df,
+        x="Epoch",
+        y="Train",
+        ax=ax2,
+        label="Train accuracy",
+        color=palette[1],
+    )
+
+    sns.lineplot(
+        data=df,
+        x="Epoch",
+        y="Eval",
+        ax=ax2,
+        label="Eval accuracy",
+        color=palette[2],
+    )
+
+    # sns.despine(offset=10, trim=True);
+    ax2.tick_params(axis="y", right=False)
+    ax1.tick_params(axis="y", left=False)
+
+    for ax in (ax1, ax2):
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+
+    ax2.set_ylabel("Accuracy")
+    ax2.legend(loc="lower right")
+
+    ax1.set_ylabel("Clusters")
+    ax1.set_yticks(range(0, df["Clusters"].max() + 1, 2))
+    ax1.set_xlabel("Epoch")
+    ax1.legend(loc="lower left")
+
+    plt.savefig("ffn-clustering.png", transparent=True)
     plt.show()
     return
 
