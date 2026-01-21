@@ -26,25 +26,26 @@ class Clustering:
         model_path: str,
         epochs: list[int],
         eval_data: DataLoader,
-        fourier_coefs: list[tuple],
-        relevant_vars: list,
+        fourier_coefs: list[tuple] | None,
+        relevant_vars: list[tuple[int, int]],
     ):
         self.epochs = epochs
-        self.layers = {}
-        self.x = [
+        self.layers: dict[int, Tensor] = {}
+
+        self.x: list[Tensor] = [
             item["x"]
             for i, item in enumerate(eval_data.dataset.dataset.data)  # type: ignore
             if i in eval_data.dataset.indices  # type: ignore
         ]
 
-        self.y = [
+        self.y: list[Tensor] = [
             item["y"]
             for i, item in enumerate(eval_data.dataset.dataset.data)  # type: ignore
             if i in eval_data.dataset.indices  # type: ignore
         ]
 
         self.fourier_coefs = fourier_coefs
-        self.relevant_vars = []
+        self.relevant_vars: list[tuple[int, int] | int] = []
 
         for var in relevant_vars:
             if isinstance(var, tuple):
@@ -74,21 +75,22 @@ class Clustering:
 
             self.layers[epoch] = epoch_representations
 
-    def cluster_over_epochs(self):
+    def cluster_over_epochs(self) -> dict[int, int]:
         logger.info("Clustering model representations...")
         number_of_clusters = {}
         for epoch, representations in self.layers.items():
             clusters = self.cluster_hdbscan(representations)
             number_of_clusters[epoch] = clusters
+
         return number_of_clusters
 
-    def cluster_hdbscan(self, representations):
+    def cluster_hdbscan(self, representations: Tensor) -> int:
         hdbscan = HDBSCAN(store_centers="centroid", copy=False)
         hdbscan.fit_predict(representations)
         best_k = len(hdbscan.centroids_)
         return best_k
 
-    def cluster_kmeans(self, representations):
+    def cluster_kmeans(self, representations: Tensor) -> int:
         best_silhouette, best_k = 0, -1
         for num_clusters in range(2, representations.shape[1]):
             k_means = KMeans(num_clusters)
@@ -100,14 +102,18 @@ class Clustering:
         return best_k
 
     def visualize(
-        self, cluster_map, eval_accs, train_accs, out_name: str | None = None
+        self,
+        cluster_map: dict[int, int],
+        eval_accs: list[int],
+        train_accs: list[int],
+        out_name: str | None = None,
     ):
         fig, ax1 = plt.subplots()
 
         color = "tab:red"
         ax1.set_xlabel("Epoch")
         ax1.set_ylabel("Number of clusters", color=color)
-        ax1.plot(cluster_map.keys(), cluster_map.values(), color=color)
+        ax1.plot(list(cluster_map.keys()), list(cluster_map.values()), color=color)
         ax1.tick_params(axis="y", labelcolor=color)
         ax1.annotate(
             xy=(max(self.epochs), cluster_map[max(self.epochs)]),
@@ -120,8 +126,8 @@ class Clustering:
 
         color = "tab:blue"
         ax2.set_ylabel("Accuracy", color=color)
-        ax2.plot(cluster_map.keys(), eval_accs, color="darkblue", label="Eval")
-        ax2.plot(cluster_map.keys(), train_accs, color="lightblue", label="Train")
+        ax2.plot(list(cluster_map.keys()), eval_accs, color="darkblue", label="Eval")
+        ax2.plot(list(cluster_map.keys()), train_accs, color="lightblue", label="Train")
         ax2.tick_params(axis="y", labelcolor=color)
 
         fig.tight_layout()
@@ -130,7 +136,10 @@ class Clustering:
         if out_name is not None:
             plt.savefig(out_name)
 
-    def get_fourier_series(self):
+    def get_fourier_series(self) -> tuple[list[int], Tensor]:
+        if self.fourier_coefs is None:
+            raise ValueError("No fourier coefs")
+
         selected_terms = []
         expanded_terms = []
         for i, term in enumerate(self.fourier_coefs):
@@ -144,12 +153,18 @@ class Clustering:
                         temp_product *= row[0][index].item()
                     else:
                         temp_product *= row[index].item()
+
                 selected_terms.append(i)
                 term_values.append(temp_product)
+
             expanded_terms.append(torch.tensor(term_values))
+
         return selected_terms, torch.stack(expanded_terms)
 
     def correlate(self):
+        if self.fourier_coefs is None:
+            raise ValueError("No fourier coefs")
+
         epoch = max(self.layers.keys())
         representation = self.layers[epoch].T
         terms, expanded_terms = self.get_fourier_series()
@@ -168,12 +183,14 @@ class Clustering:
         for i in range(cross_corr.shape[0]):
             for j in range(cross_corr.shape[1]):
                 if abs(cross_corr[i][j]) > 0.1:  # Decently strong correlation
-                    print(
-                        f"Representation var {i} correlates with Fourier term {self.fourier_coefs[terms[j]][0]} with correlation {cross_corr[i][j]}"
+                    logger.info(
+                        "Representation var %d correlates with Fourier term %d with correlation %d",
+                        i,
+                        self.fourier_coefs[terms[j]][0],
+                        cross_corr[i][j],
                     )
-        return None
 
-    def test_ood(self, model: torch.nn.Module):
+    def test_ood(self, model: Module):
         num_terms = len(self.x[0])
         transformer = False
         if num_terms == 1:
@@ -212,7 +229,7 @@ class Clustering:
                 y = batch[1].to("cpu")
 
                 with torch.no_grad():
-                    y_hat = model(x, return_layer=False)
+                    y_hat, _ = model(x, return_layer=False)
 
                 y = ((-1) * y + 1) / 2
                 eval_acc += ((y_hat > 0.5) == y.bool()).float().mean().item()

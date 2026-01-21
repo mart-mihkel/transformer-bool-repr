@@ -5,15 +5,13 @@ import einops
 import torch
 from torch import Tensor
 from torch.nn import (
-    GELU,
     LayerNorm,
     Linear,
     Module,
     ModuleList,
-    ReLU,
     Sequential,
     Sigmoid,
-    Tanh
+    Tanh,
 )
 
 logger = logging.getLogger("boolrepr")
@@ -38,60 +36,21 @@ class FeedForwardNetwork(Module):
         )
         self.out = Sequential(
             Linear(hidden_size, out_size),
-            #Tanh()
+            # Tanh()
             Sigmoid(),
         )
 
     def forward(
-        self, x: Annotated[Tensor, "batch input"],
-        return_layer: bool = False
-    ) -> Annotated[Tensor, "batch out"]:
+        self,
+        x: Annotated[Tensor, "batch input"],
+        return_layer: bool = False,
+    ) -> tuple[Annotated[Tensor, "batch out"], Tensor | None]:
         hidden_layer = self.net(x)
         out = self.out(hidden_layer)
-        if(return_layer):
+        if return_layer:
             return out, hidden_layer
-        return out
 
-
-class ParallelFeedForwardNetworks(Module):
-    """
-    Parallel networks from [incontext bool](https://arxiv.org/abs/2310.03016)
-    """
-
-    def __init__(
-        self,
-        num_models: int,
-        input_size: int = 64,
-        hidden_size: int = 256,
-        out_size: int = 1,
-    ):
-        assert num_models > 0, "Non-positive number of networks"
-
-        super(ParallelFeedForwardNetworks, self).__init__()
-
-        self.num_models = num_models
-        self.nets = ModuleList(
-            [
-                FeedForwardNetwork(
-                    input_size=input_size,
-                    hidden_size=hidden_size,
-                    out_size=out_size,
-                )
-                for _ in range(num_models)
-            ]
-        )
-
-    def forward(
-        self, x: Annotated[Tensor, "batch input"]
-    ) -> Annotated[Tensor, "batch out"]:
-        b = x.shape[0]
-        n = self.num_models
-
-        assert b % n == 0, "Batch size not divisib by number of networks"
-
-        chunks = x.view(n, b // n, -1)
-        out = [net(c) for net, c in zip(self.nets, chunks)]
-        return torch.cat(out, dim=0)
+        return out, None
 
 
 class MultiHeadAttention(Module):
@@ -113,7 +72,7 @@ class MultiHeadAttention(Module):
         mask: Annotated[Tensor, "sequence embed"] | None = None,
     ) -> Annotated[Tensor, "batch sequence embed"]:
         q, k, v = self.proj_qkv(x).chunk(3, dim=-1)
-        #q, k, v = x, x, x
+        # q, k, v = x, x, x
         q, k, v = map(self.head_partition, (q, k, v))
 
         attn_scores = q @ k.transpose(-1, -2) * self.scale
@@ -145,7 +104,7 @@ class TransformerBlock(Module):
         super().__init__()
 
         self.attn = MultiHeadAttention(embed_dim, num_heads)
-        #self.attn = torch.nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
+        # self.attn = torch.nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
         self.ffn1 = Sequential(
             Linear(embed_dim, hidden_dim),
             Tanh(),
@@ -159,19 +118,21 @@ class TransformerBlock(Module):
         self,
         x: Annotated[Tensor, "batch sequence embed"],
         mask: Annotated[Tensor, "sequence embed"] | None = None,
-        return_layer: bool = False
-    ) -> Annotated[Tensor, "batch sequence embed"]:
+        return_layer: bool = False,
+    ) -> tuple[Annotated[Tensor, "batch class"], Tensor | None]:
         res = x
         out = self.attn(x, mask)
-        #out, _ = self.attn(x)
+        # out, _ = self.attn(x)
         out = self.norm1(out + res)
 
         res = out
         hidden_layer = self.ffn1(out)
         out = self.ffn2(hidden_layer)
         out = self.norm2(out + res)
+
         if return_layer:
             return out, hidden_layer
+
         return out, None
 
 
@@ -199,19 +160,21 @@ class TransformerEncoder(Module):
     def forward(
         self,
         input_embeds: Annotated[Tensor, "batch sequence embed"],
-        return_layer: bool = False
-    ) -> Annotated[Tensor, "batch class"]:
+        return_layer: bool = False,
+    ) -> tuple[Annotated[Tensor, "batch class"], Tensor | None]:
         out = input_embeds
-
         for block in self.blocks:
             out, hidden_layer = block(out, return_layer=return_layer)
+
         if out.shape[1] == 1:
-            if hidden_layer != None:
+            if hidden_layer is not None:
                 hidden_layer = hidden_layer[:, 0, :]
-            out = out[:, 0, :] # If sequence length = 1
+
+            out = out[:, 0, :]  # If sequence length = 1
+
         out2 = self.fc(out)
         out2 = self.sigmoid(out2)
         if return_layer:
-            #return out2, hidden_layer.squeeze()
             return out2, hidden_layer
-        return out2
+
+        return out2, None

@@ -20,6 +20,7 @@ logger = logging.getLogger("boolrepr")
 class Telemetry(TypedDict):
     epoch: int
     train_loss: float
+    train_accuracy: float
     eval_loss: float
     eval_accuracy: float
 
@@ -51,8 +52,7 @@ class Trainer:
         self.model = model.to(self.device)
         self.optimizer = AdamW(model.parameters())
         self.fourier_coefs = None
-        #self.fourier_expand(bool_function)
-        
+        # self.fourier_expand(bool_function)
 
         train_dataset, test_dataset = torch.utils.data.random_split(
             bool_function, [train_data_proportion, 1 - train_data_proportion]
@@ -88,15 +88,15 @@ class Trainer:
             x = batch["x"].to(self.device)
             y = batch["y"].to(self.device)
 
-            y_hat = self.model(x).flatten()
+            y_hat = self.model(x)[0].flatten()
 
             # TESTING (-1,1) to (1, 0)
-            #y_hat = ((-1) * y_hat + 1)/2
-            
-            y = ((-1) * y + 1)/2
+            # y_hat = ((-1) * y_hat + 1)/2
+
+            y = ((-1) * y + 1) / 2
             loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
 
-            #loss = torch.nn.functional.mse_loss(y_hat, y)
+            # loss = torch.nn.functional.mse_loss(y_hat, y)
             loss.backward()
 
             self.optimizer.step()
@@ -104,12 +104,11 @@ class Trainer:
 
             train_loss += loss.item()
             train_acc += ((y_hat > 0.5) == y.bool()).float().mean().item()
-            #train_acc += ((y_hat < 0) == (y < 0)).float().mean().item()
+            # train_acc += ((y_hat < 0) == (y < 0)).float().mean().item()
             pbar.set_description(f"Train loss {train_loss / (i + 1):.4f}")
         self._eval(epoch, train_loss, train_acc)
 
-
-    def _eval(self, epoch: int, train_loss: float, train_acc : float):
+    def _eval(self, epoch: int, train_loss: float, train_acc: float):
         self.model.eval()
         eval_acc = 0
         eval_loss = 0
@@ -121,19 +120,19 @@ class Trainer:
             y = batch["y"].to(self.device)
 
             with torch.no_grad():
-                y_hat = self.model(x).flatten()
+                y_hat = self.model(x)[0].flatten()
 
             # Testing (0,1) to (1, -1)
-            #y_hat = ((-1) * y_hat + 1)/2
-            
-            y = ((-1) * y + 1)/2
+            # y_hat = ((-1) * y_hat + 1)/2
+
+            y = ((-1) * y + 1) / 2
             loss = torch.nn.functional.binary_cross_entropy(y_hat, y)
 
-            #loss = torch.nn.functional.mse_loss(y_hat, y)
+            # loss = torch.nn.functional.mse_loss(y_hat, y)
 
             eval_loss += loss.item()
             eval_acc += ((y_hat > 0.5) == y.bool()).float().mean().item()
-            #eval_acc += ((y_hat < 0) == (y < 0)).float().mean().item()
+            # eval_acc += ((y_hat < 0) == (y < 0)).float().mean().item()
             pbar.set_description(f"Eval loss {eval_loss / (i + 1):.4f}")
 
         avg_train_loss = train_loss / len(self.train_loader)
@@ -175,10 +174,12 @@ class Trainer:
             input_dim = len(truth_table[0]["x"][0])
         else:
             input_dim = len(truth_table[0]["x"])
-        assert 2**input_dim == len(truth_table), "Truth table size does not match input dimension"
-        input_indices = list(range(0,input_dim))
+        assert 2**input_dim == len(truth_table), (
+            "Truth table size does not match input dimension"
+        )
+        input_indices = list(range(0, input_dim))
         term_coefs = []
-        for size_of_term in range(0, input_dim+1):
+        for size_of_term in range(0, input_dim + 1):
             if size_of_term > len(dataset.relevant_vars):
                 break
             term_indices = list(combinations(input_indices, size_of_term))
@@ -193,7 +194,7 @@ class Trainer:
                         else:
                             temp_product *= row["x"][index].item()
                     term_value += temp_product
-                term_value = (1/(2**input_dim)) * term_value
+                term_value = (1 / (2**input_dim)) * term_value
                 if term_value != 0:
                     print(f"Term {index_combination} has value {term_value}")
                 """
@@ -210,6 +211,9 @@ class Trainer:
                     print(f"Term {index_comb} has value {(1/(2**input_dim)) * term_value}")
                 """
                 term_coefs.append((index_combination, term_value))
-                
-        logger.info("Coefficients with non-zero values %d", sum([1 for term in term_coefs if term[1] != 0 ]))
+
+        logger.info(
+            "Coefficients with non-zero values %d",
+            sum([1 for term in term_coefs if term[1] != 0]),
+        )
         self.fourier_coefs = term_coefs

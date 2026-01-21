@@ -2,16 +2,11 @@ sync:
 	uv sync
 	uv pip install --editable .
 
-notebook:
+marimo:
 	uv run marimo edit notebooks
 
-format:
-	@uv run ruff format
-
-lint:
-	@uv run ruff check --fix
-
-test:
-	@uv run pytest
-
-check: format lint test
+pre-commit:
+	uv run ruff check --fix
+	uv run ruff format
+	uv run ty check
+	uv run pytest

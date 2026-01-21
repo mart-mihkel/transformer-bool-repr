@@ -1,27 +1,10 @@
 import torch
 
 from boolrepr.models import (
-    ParallelFeedForwardNetworks,
     MultiHeadAttention,
     TransformerEncoder,
     TransformerBlock,
 )
-
-
-def test_parallel_networks():
-    batch, n_nets, hidden, d_in, d_out = 4, 2, 8, 6, 1
-
-    model = ParallelFeedForwardNetworks(
-        num_models=n_nets,
-        input_size=d_in,
-        hidden_size=hidden,
-        out_size=d_out,
-    )
-
-    x = torch.randn(batch, d_in)
-    y = model.forward(x)
-
-    assert y.shape == (batch, d_out)
 
 
 def test_multi_head_attention():
@@ -44,7 +27,7 @@ def test_transformer_block():
     )
 
     x = torch.randn(batch, seq, emb)
-    y = enc_block.forward(x)
+    y, _ = enc_block.forward(x)
 
     assert y.shape == (batch, seq, emb)
 
@@ -61,6 +44,6 @@ def test_transformer_encoder():
     )
 
     x = torch.randint(low=0, high=1, size=(batch, 1, emb)).float()
-    y = enc.forward(x)
+    y, _ = enc.forward(x)
 
     assert y.shape == (batch, classes)

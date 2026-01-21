@@ -68,10 +68,12 @@ class BooleanFunctionDataset(Dataset):
             r = random.random()
             if r < 0.5:  # Include positive literal x_i
                 literals.append((i, 1))
-            else: # Include negative literal ¬x_i
+            else:  # Include negative literal ¬x_i
                 literals.append((i, 0))
 
-        literals = random.sample(literals, self.parity_k) # Randomly select k literals to include
+        literals = random.sample(
+            literals, self.parity_k
+        )  # Randomly select k literals to include
 
         # Evaluate the conjunction on input x.
         result = torch.ones(x.shape[0], dtype=torch.float32)
@@ -147,17 +149,17 @@ class BooleanFunctionDataset(Dataset):
 
         logger.info(sum(labels))
         logger.info(len(labels))
-        inputs = (-1)**inputs
-        labels = (-1)**labels
+        inputs = (-1) ** inputs
+        labels = (-1) ** labels
 
         # Turn variables into embeddings for the Transformer model
         if self.transformer:
             inputs = inputs.unsqueeze(1)
 
-        return [{"x": x, "y": y} for x, y in zip(inputs, labels)]
+        return [BooleanExpression(x=x, y=y) for x, y in zip(inputs, labels)]
 
     def __len__(self):
         return 2**self.input_dim
 
-    def __getitem__(self, idx):
-        return self.data[idx]
+    def __getitem__(self, index):
+        return self.data[index]

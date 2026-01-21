@@ -2,9 +2,8 @@ import logging
 from pathlib import Path
 from typing import Literal
 
-from boolrepr.clustering import Clustering
 from boolrepr.data import BooleanFunctionDataset
-from boolrepr.models import FeedForwardNetwork, TransformerEncoder
+from boolrepr.models import TransformerEncoder
 from boolrepr.trainer import Trainer
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ def main(
     train_data_proportion: float = 0.8,
     out_dir: str = "out/transformer",
     random_seed: int | None = None,
-) -> tuple[Trainer, BooleanFunctionDataset, FeedForwardNetwork]:
+) -> tuple[Trainer, BooleanFunctionDataset, TransformerEncoder]:
     func = BooleanFunctionDataset(
         input_dim=input_dim,
         function_class=function_class,
