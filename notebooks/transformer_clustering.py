@@ -5,7 +5,7 @@ app = marimo.App()
 
 with app.setup:
     from boolrepr.clustering import Clustering
-    from boolrepr.scripts.train_ffn import main as train_ffn
+    from boolrepr.scripts.train_transformer import main as train_transformer
 
     import matplotlib.pyplot as plt
 
@@ -17,6 +17,8 @@ def _():
     epochs = 25
     batch_size = 128
     parity_relevant_vars = 2
+    num_blocks = 3
+    num_heads = 2
     hidden_dim = 64
     train_data_proportion = 0.8
     out_dir = "out/ffn"
@@ -46,7 +48,7 @@ def _(
     random_seed,
     train_data_proportion,
 ):
-    trainer, func, model = train_ffn(
+    trainer, func, model = train_transformer(
         function_class=function_class,
         input_dim=input_dim,
         epochs=epochs,

@@ -60,70 +60,21 @@ def train_transformer(
     out_dir: str = "out/transformer",
     random_seed: int | None = None,
 ):
-    from pathlib import Path
+    from boolrepr.scripts.train_transformer import main
 
-    from boolrepr.clustering import Clustering
-    from boolrepr.data import BooleanFunctionDataset
-    from boolrepr.models import TransformerEncoder
-    from boolrepr.trainer import Trainer
-
-    bool_function = BooleanFunctionDataset(
-        input_dim=input_dim,
+    main(
         function_class=function_class,
-        parity_relevant_vars=parity_relevant_vars,
-        random_seed=random_seed,
-        transformer=True,
-    )
-
-    logger.info("dataset size %d", len(bool_function))
-    logger.info(f"relevant variables {bool_function.relevant_vars}")
-
-    model = TransformerEncoder(
-        embed_dim=input_dim,
-        num_heads=num_heads,
-        hidden_dim=hidden_dim,
-        num_blocks=num_blocks,
-        num_classes=1,
-    )
-
-    trainer = Trainer(
-        model=model,
-        bool_function=bool_function,
+        input_dim=input_dim,
         epochs=epochs,
         batch_size=batch_size,
+        parity_relevant_vars=parity_relevant_vars,
+        num_blocks=num_blocks,
+        num_heads=num_heads,
+        hidden_dim=hidden_dim,
         train_data_proportion=train_data_proportion,
-        out_dir=Path(out_dir),
+        out_dir=out_dir,
+        random_seed=random_seed,
     )
-
-    trainer.train()
-    testing_epochs = list(range(1, epochs + 1, max(epochs // 50, 1)))
-    cluster = Clustering(
-        model,
-        out_dir,
-        testing_epochs,
-        trainer.eval_loader,
-        trainer.fourier_coefs,
-        bool_function.relevant_vars,
-    )
-    cluster.test_ood(model)
-    cluster.correlate()
-    clusters_per_epoch = cluster.cluster_over_epochs()
-
-    cluster.visualize(
-        clusters_per_epoch,
-        [
-            item["eval_accuracy"]
-            for item in trainer.telemetry
-            if item["epoch"] in testing_epochs
-        ],
-        [
-            item["train_accuracy"]
-            for item in trainer.telemetry
-            if item["epoch"] in testing_epochs
-        ],
-        "figure_transformer.pdf",
-    )
-    logger.info("Clustering info saved to figure_transformer.pdf")
 
 
 if __name__ == "__main__":
