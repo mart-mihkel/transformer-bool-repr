@@ -11,7 +11,7 @@ from torch.nn import (
     ModuleList,
     Sequential,
     Sigmoid,
-    Tanh,
+    Tanh
 )
 
 logger = logging.getLogger("boolrepr")
@@ -32,6 +32,8 @@ class FeedForwardNetwork(Module):
 
         self.net = Sequential(
             Linear(input_size, hidden_size),
+            Tanh(),
+            Linear(hidden_size, hidden_size),
             Tanh(),
         )
         self.out = Sequential(

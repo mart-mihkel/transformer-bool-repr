@@ -147,12 +147,7 @@ class Clustering:
         for i in range(cross_corr.shape[0]):
             for j in range(cross_corr.shape[1]):
                 if abs(cross_corr[i][j]) > 0.1:  # Decently strong correlation
-                    logger.info(
-                        "Representation var %d correlates with Fourier term %d with correlation %d",
-                        i,
-                        self.fourier_coefs[terms[j]][0],
-                        cross_corr[i][j],
-                    )
+                    logger.info(f"Representation var {i} correlates with Fourier term {self.fourier_coefs[terms[j]][0]} with correlation {cross_corr[i][j]}")
 
     def test_ood(self, model: Module):
         num_terms = len(self.x[0])

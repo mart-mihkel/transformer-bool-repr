@@ -125,7 +125,7 @@ class BooleanFunctionDataset(Dataset):
     def _generate_majority(self, x: Tensor) -> Tensor:
         """Generate a majority function on a random subset of variables."""
         # Random subset of variables (size ~n/3)
-        subset_size = max(1, self.input_dim // 3)
+        subset_size = self.parity_k
         self.relevant_vars = random.sample(range(self.input_dim), subset_size)
 
         relevant = x[:, self.relevant_vars]

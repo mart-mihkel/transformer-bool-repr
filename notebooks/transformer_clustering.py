@@ -7,6 +7,7 @@ with app.setup:
     from boolrepr.clustering import Clustering
     from boolrepr.scripts.train_transformer import main as train_transformer
 
+    import logging
     import polars as pl
     import seaborn as sns
     import matplotlib.pyplot as plt
@@ -14,17 +15,20 @@ with app.setup:
 
 @app.cell
 def _():
-    function_class = "conjunction"
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    function_class = "parity"
     input_dim = 10
-    epochs = 100
-    batch_size = 128
+    epochs = 200
+    batch_size = 1024
     parity_relevant_vars = 3
     num_blocks = 3
-    num_heads = 2
-    hidden_dim = 64
+    num_heads = 1
+    hidden_dim = 128
     train_data_proportion = 0.8
-    out_dir = "out/ffn"
-    random_seed = None
+    out_dir = "out/transformer"
+    random_seed = 2
     return (
         batch_size,
         epochs,
@@ -72,7 +76,7 @@ def _(
 
 @app.cell
 def _(epochs, func, model, out_dir, trainer):
-    _testing_epochs = list(range(1, epochs + 1, max(epochs // 50, 1)))
+    _testing_epochs = list(range(1, epochs + 1, max(1, epochs // 50)))
 
     _cluster = Clustering(
         model,
@@ -84,6 +88,7 @@ def _(epochs, func, model, out_dir, trainer):
     )
 
     _cluster.test_ood(model)
+    #_cluster.correlate()
     _clusters_per_epoch = _cluster.cluster_over_epochs()
 
     _eval_accs = [
@@ -117,7 +122,7 @@ def _(df):
     sns.set_context("talk")
     palette = sns.color_palette("ch:s=.25,rot=-.25")
     palette2 = sns.color_palette("flare")
-    fig, ax1 = plt.subplots(figsize=(8, 5))
+    fig, ax1 = plt.subplots(figsize=(8, 7))
     ax2 = ax1.twinx()
 
     sns.lineplot(
@@ -165,8 +170,14 @@ def _(df):
     ax1.set_xlabel("Epoch")
     ax1.legend(loc="lower left")
 
-    plt.savefig("transformer-clustering.png", transparent=True)
+    plt.savefig("transformer-clustering.pdf", transparent=True)
     plt.show()
+    return
+
+
+@app.cell
+def _(model):
+    print("Parameters:", sum(p.numel() for p in model.parameters()))
     return
 
 

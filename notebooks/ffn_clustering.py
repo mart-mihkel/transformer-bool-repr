@@ -8,21 +8,25 @@ with app.setup:
     from boolrepr.scripts.train_ffn import main as train_ffn
 
     import polars as pl
+    import logging
     import seaborn as sns
     import matplotlib.pyplot as plt
 
 
 @app.cell
 def _():
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
     function_class = "conjunction"
-    input_dim = 8
-    epochs = 25
-    batch_size = 128
-    parity_relevant_vars = 2
-    hidden_dim = 64
+    input_dim = 10
+    epochs = 200
+    batch_size = 1024
+    parity_relevant_vars = 3
+    hidden_dim = 256
     train_data_proportion = 0.8
     out_dir = "out/ffn"
-    random_seed = None
+    random_seed = 1
     return (
         batch_size,
         epochs,
@@ -64,7 +68,7 @@ def _(
 
 @app.cell
 def _(epochs, func, model, out_dir, trainer):
-    _testing_epochs = list(range(1, epochs + 1, max(epochs // 50, 1)))
+    _testing_epochs = list(range(1, epochs + 1, max(1, epochs // 50)))
 
     _cluster = Clustering(
         model,
@@ -76,6 +80,7 @@ def _(epochs, func, model, out_dir, trainer):
     )
 
     _cluster.test_ood(model)
+    #_cluster.correlate()
     _clusters_per_epoch = _cluster.cluster_over_epochs()
 
     _eval_accs = [
@@ -109,7 +114,7 @@ def _(df):
     sns.set_context("talk")
     palette = sns.color_palette("ch:s=.25,rot=-.25")
     palette2 = sns.color_palette("flare")
-    fig, ax1 = plt.subplots(figsize=(8, 5))
+    fig, ax1 = plt.subplots(figsize=(8, 7))
     ax2 = ax1.twinx()
 
     sns.lineplot(
@@ -157,8 +162,19 @@ def _(df):
     ax1.set_xlabel("Epoch")
     ax1.legend(loc="lower left")
 
-    plt.savefig("ffn-clustering.png", transparent=True)
+    plt.savefig("ffn-clustering.pdf", transparent=True)
     plt.show()
+    return
+
+
+@app.cell
+def _(model):
+    print("Parameters:", sum(p.numel() for p in model.parameters()))
+    return
+
+
+@app.cell
+def _():
     return
 
 
