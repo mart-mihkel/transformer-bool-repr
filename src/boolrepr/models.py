@@ -4,15 +4,7 @@ from typing import Annotated
 import einops
 import torch
 from torch import Tensor
-from torch.nn import (
-    LayerNorm,
-    Linear,
-    Module,
-    ModuleList,
-    Sequential,
-    Sigmoid,
-    Tanh
-)
+from torch.nn import LayerNorm, Linear, Module, ModuleList, Sequential, Sigmoid, Tanh
 
 logger = logging.getLogger("boolrepr")
 

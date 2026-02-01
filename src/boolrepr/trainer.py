@@ -52,7 +52,7 @@ class Trainer:
         self.model = model.to(self.device)
         self.optimizer = AdamW(model.parameters())
         self.fourier_coefs = None
-        #self.fourier_expand(bool_function)
+        # self.fourier_expand(bool_function)
 
         train_dataset, test_dataset = torch.utils.data.random_split(
             bool_function, [train_data_proportion, 1 - train_data_proportion]
@@ -183,7 +183,7 @@ class Trainer:
             if size_of_term > len(dataset.relevant_vars):
                 break
             term_indices = list(combinations(input_indices, size_of_term))
-            #print(f"Terms of size {size_of_term}: {len(term_indices)}")
+            # print(f"Terms of size {size_of_term}: {len(term_indices)}")
             for index_combination in term_indices:
                 term_value = 0
                 for row in truth_table:

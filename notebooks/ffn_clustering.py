@@ -8,16 +8,12 @@ with app.setup:
     from boolrepr.scripts.train_ffn import main as train_ffn
 
     import polars as pl
-    import logging
     import seaborn as sns
     import matplotlib.pyplot as plt
 
 
 @app.cell
 def _():
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
     function_class = "conjunction"
     input_dim = 10
     epochs = 200
@@ -80,7 +76,7 @@ def _(epochs, func, model, out_dir, trainer):
     )
 
     _cluster.test_ood(model)
-    #_cluster.correlate()
+    # _cluster.correlate()
     _clusters_per_epoch = _cluster.cluster_over_epochs()
 
     _eval_accs = [
